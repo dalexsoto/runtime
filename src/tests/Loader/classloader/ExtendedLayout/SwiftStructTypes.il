@@ -62,3 +62,27 @@
     .field public valuetype PaddedSequentialInner Inner
     .field public int8 C
 }
+
+// Enums may not use extended layout: both the VM and the managed AOT type
+// system must reject this shape identically.
+.class flags(0x18) public sealed SwiftEnumExtended extends [System.Runtime]System.Enum
+{
+    .custom instance void [System.Runtime]System.Runtime.InteropServices.ExtendedLayoutAttribute::.ctor(valuetype [System.Runtime]System.Runtime.InteropServices.ExtendedLayoutKind) = {
+        int32(0x00000002) // SwiftStruct
+    }
+
+    .field public specialname rtspecialname int32 value__
+    .field public static literal valuetype SwiftEnumExtended A = int32(0)
+}
+
+// Generic SwiftStruct: layout (including tail packing) is computed per
+// instantiation.
+.class flags(0x18) public value beforefieldinit SwiftGenericHolder`1<valuetype T>
+{
+    .custom instance void [System.Runtime]System.Runtime.InteropServices.ExtendedLayoutAttribute::.ctor(valuetype [System.Runtime]System.Runtime.InteropServices.ExtendedLayoutKind) = {
+        int32(0x00000002) // SwiftStruct
+    }
+
+    .field public !T A
+    .field public int8 B
+}

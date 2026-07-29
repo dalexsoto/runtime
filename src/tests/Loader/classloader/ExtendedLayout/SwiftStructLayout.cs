@@ -58,6 +58,68 @@ public static class SwiftStructLayoutTests
     }
 
     [Fact]
+    public static void GenericSwiftStructLayoutPerInstantiation()
+    {
+        // Layout is computed per instantiation, including tail packing when
+        // the generic argument is itself a SwiftStruct.
+        var overLong = default(SwiftGenericHolder<long>);
+        Assert.Equal(16, Unsafe.SizeOf<SwiftGenericHolder<long>>());
+        Assert.Equal(8, OffsetOf(ref overLong, ref overLong.B));
+
+        var overByte = default(SwiftGenericHolder<byte>);
+        Assert.Equal(2, Unsafe.SizeOf<SwiftGenericHolder<byte>>());
+        Assert.Equal(1, OffsetOf(ref overByte, ref overByte.B));
+
+        // T = SwiftInner (unpadded size 9): B tail-packs to offset 9.
+        var overInner = default(SwiftGenericHolder<SwiftInner>);
+        Assert.Equal(16, Unsafe.SizeOf<SwiftGenericHolder<SwiftInner>>());
+        Assert.Equal(9, OffsetOf(ref overInner, ref overInner.B));
+    }
+
+    [Fact]
+    public static void ReflectionEmitSwiftStructLayout()
+    {
+        if (!TestLibrary.Utilities.IsReflectionEmitSupported)
+            return;
+
+        var assembly = System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly(
+            new System.Reflection.AssemblyName("SwiftStructEmit"),
+            System.Reflection.Emit.AssemblyBuilderAccess.Run);
+        var module = assembly.DefineDynamicModule("SwiftStructEmit");
+
+        var typeBuilder = module.DefineType(
+            "EmittedSwiftOuter",
+            System.Reflection.TypeAttributes.Public
+                | System.Reflection.TypeAttributes.ExtendedLayout
+                | System.Reflection.TypeAttributes.Sealed,
+            typeof(ValueType));
+        var attributeCtor = typeof(System.Runtime.InteropServices.ExtendedLayoutAttribute)
+            .GetConstructor([typeof(System.Runtime.InteropServices.ExtendedLayoutKind)])!;
+        typeBuilder.SetCustomAttribute(new System.Reflection.Emit.CustomAttributeBuilder(
+            attributeCtor, [(System.Runtime.InteropServices.ExtendedLayoutKind)2]));
+        typeBuilder.DefineField("Inner", typeof(SwiftInner), System.Reflection.FieldAttributes.Public);
+        typeBuilder.DefineField("C", typeof(sbyte), System.Reflection.FieldAttributes.Public);
+
+        Type emitted = typeBuilder.CreateType();
+
+        // SwiftStruct types are blittable, so the marshalling layout equals
+        // the managed layout: the trailing field tail-packs to offset 9.
+        Assert.Equal(16, System.Runtime.InteropServices.Marshal.SizeOf(emitted));
+        Assert.Equal(9, (int)System.Runtime.InteropServices.Marshal.OffsetOf(emitted, "C"));
+    }
+
+    [Fact]
+    public static void EnumWithExtendedLayoutIsRejected()
+    {
+        // Validation parity: enums may not use extended layout in either
+        // the CoreCLR VM or the managed AOT type system.
+        Assert.Throws<TypeLoadException>(TouchExtendedEnum);
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        static void TouchExtendedEnum() => typeof(SwiftEnumExtended).ToString();
+    }
+
+    [Fact]
     public static void SequentialNestedStructDoesNotTailPack()
     {
         // A non-SwiftStruct nested value keeps its full managed size (16),

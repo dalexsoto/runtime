@@ -128,6 +128,7 @@ namespace Internal.TypeSystem
         Sequential,
         Explicit,
         CStruct,
-        CUnion
+        CUnion,
+        SwiftStruct
     }
 }

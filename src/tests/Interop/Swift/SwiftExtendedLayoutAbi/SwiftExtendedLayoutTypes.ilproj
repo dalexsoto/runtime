@@ -4,6 +4,6 @@
     <MonoAotIncompatible>true</MonoAotIncompatible>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="SwiftStructTypes.il" />
+    <Compile Include="SwiftExtendedLayoutTypes.il" />
   </ItemGroup>
 </Project>

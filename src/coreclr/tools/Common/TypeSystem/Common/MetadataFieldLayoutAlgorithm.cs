@@ -603,6 +603,129 @@ namespace Internal.TypeSystem
             return computedLayout;
         }
 
+        protected ComputedInstanceFieldLayout ComputeSwiftStructFieldLayout(MetadataType type, int numInstanceFields)
+        {
+            if (type.IsEnum)
+            {
+                // Validation parity with the CoreCLR VM: enums may not use
+                // extended layout.
+                ThrowHelper.ThrowTypeLoadException(ExceptionStringID.ClassLoadBadFormat, type);
+            }
+
+            if (type.ContainsGCPointers || type.IsByRefLike || !type.IsValueType)
+            {
+                // SwiftStruct layout does not support GC pointers.
+                ThrowHelper.ThrowTypeLoadException(ExceptionStringID.ClassLoadBadFormat, type);
+            }
+
+            if (type.IsInlineArray)
+            {
+                // SwiftStruct types cannot be inline arrays.
+                ThrowHelper.ThrowTypeLoadException(ExceptionStringID.ClassLoadBadFormat, type);
+            }
+
+            var offsets = new FieldAndOffset[numInstanceFields];
+
+            bool layoutAbiStable = true;
+            bool hasAutoLayoutField = false;
+            bool hasInt128Field = false;
+            bool hasVectorTField = false;
+
+            LayoutInt cumulativeInstanceFieldPos = PlaceSwiftStructFields(
+                type, offsets, out LayoutInt largestAlignmentRequirement,
+                ref layoutAbiStable, ref hasAutoLayoutField, ref hasInt128Field, ref hasVectorTField);
+
+            if (hasAutoLayoutField)
+            {
+                // SwiftStruct does not support auto layout fields.
+                ThrowHelper.ThrowTypeLoadException(ExceptionStringID.ClassLoadBadFormat, type);
+            }
+
+            // Zero-sized SwiftStruct types are allowed: Swift empty structs
+            // have size 0 and stride 1; ComputeInstanceSize pads to 1.
+
+            SizeAndAlignment instanceByteSizeAndAlignment;
+            var instanceSizeAndAlignment = ComputeInstanceSize(
+                type,
+                cumulativeInstanceFieldPos,
+                largestAlignmentRequirement,
+                classLayoutSize: 0, // SwiftStruct does not use the size from metadata.
+                out instanceByteSizeAndAlignment);
+
+            ComputedInstanceFieldLayout computedLayout = new ComputedInstanceFieldLayout
+            {
+                IsAutoLayoutOrHasAutoLayoutFields = false,
+                IsInt128OrHasInt128Fields = hasInt128Field,
+                IsVectorTOrHasVectorTFields = hasVectorTField,
+                FieldAlignment = instanceSizeAndAlignment.Alignment,
+                FieldSize = instanceSizeAndAlignment.Size,
+                ByteCountUnaligned = instanceByteSizeAndAlignment.Size,
+                ByteCountAlignment = instanceByteSizeAndAlignment.Alignment,
+                Offsets = offsets,
+                LayoutAbiStable = layoutAbiStable
+            };
+
+            return computedLayout;
+        }
+
+        /// <summary>
+        /// Places the fields of a SwiftStruct-layout type and returns the
+        /// unpadded Swift size (end of the last field). Nested SwiftStruct
+        /// fields advance by their own unpadded size, so later fields
+        /// tail-pack into the nested value's padding; fields of every other
+        /// layout kind keep their full size.
+        /// </summary>
+        private LayoutInt PlaceSwiftStructFields(
+            MetadataType type, FieldAndOffset[] offsets, out LayoutInt largestAlignmentRequirement,
+            ref bool layoutAbiStable, ref bool hasAutoLayoutField, ref bool hasInt128Field, ref bool hasVectorTField)
+        {
+            LayoutInt cumulativeInstanceFieldPos = LayoutInt.Zero;
+            largestAlignmentRequirement = LayoutInt.One;
+            int fieldOrdinal = 0;
+            int packingSize = type.Context.Target.MaximumAlignment;
+
+            foreach (var field in type.GetFields())
+            {
+                if (field.IsStatic)
+                    continue;
+
+                var fieldSizeAndAlignment = ComputeFieldSizeAndAlignment(field.FieldType.UnderlyingType, hasLayout: true, packingSize, out ComputedFieldData fieldData);
+                if (!fieldData.LayoutAbiStable)
+                    layoutAbiStable = false;
+                if (fieldData.HasAutoLayout)
+                    hasAutoLayoutField = true;
+                if (fieldData.HasInt128Field)
+                    hasInt128Field = true;
+                if (fieldData.HasVectorTField)
+                    hasVectorTField = true;
+
+                largestAlignmentRequirement = LayoutInt.Max(fieldSizeAndAlignment.Alignment, largestAlignmentRequirement);
+
+                LayoutInt fieldAdvance = fieldSizeAndAlignment.Size;
+                if (field.FieldType is MetadataType { IsValueType: true } fieldMetadataType
+                    && fieldMetadataType.GetClassLayout().Kind == MetadataLayoutKind.SwiftStruct)
+                {
+                    fieldAdvance = ComputeSwiftStructUnpaddedSize(fieldMetadataType);
+                }
+
+                cumulativeInstanceFieldPos = AlignUpInstanceFieldOffset(cumulativeInstanceFieldPos, fieldSizeAndAlignment.Alignment, type.Context.Target);
+                if (offsets != null)
+                    offsets[fieldOrdinal] = new FieldAndOffset(field, cumulativeInstanceFieldPos);
+                cumulativeInstanceFieldPos = LayoutInt.AddThrowing(cumulativeInstanceFieldPos, fieldAdvance, type);
+
+                fieldOrdinal++;
+            }
+
+            return cumulativeInstanceFieldPos;
+        }
+
+        private LayoutInt ComputeSwiftStructUnpaddedSize(MetadataType type)
+        {
+            bool unusedStable = true, unusedAuto = false, unusedInt128 = false, unusedVector = false;
+            return PlaceSwiftStructFields(
+                type, null, out _, ref unusedStable, ref unusedAuto, ref unusedInt128, ref unusedVector);
+        }
+
         protected ComputedInstanceFieldLayout ComputeCUnionFieldLayout(MetadataType type, int numInstanceFields)
         {
             if (type.IsEnum)

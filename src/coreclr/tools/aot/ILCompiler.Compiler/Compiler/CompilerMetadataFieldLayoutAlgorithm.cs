@@ -50,6 +50,7 @@ namespace ILCompiler
                 MetadataLayoutKind.Sequential when !type.ContainsGCPointers => ComputeSequentialFieldLayout(type, numInstanceFields, layoutMetadata),
                 MetadataLayoutKind.CStruct => ComputeCStructFieldLayout(type, numInstanceFields),
                 MetadataLayoutKind.CUnion => ComputeCUnionFieldLayout(type, numInstanceFields),
+                MetadataLayoutKind.SwiftStruct => ComputeSwiftStructFieldLayout(type, numInstanceFields),
                 _ => ComputeAutoFieldLayout(type, numInstanceFields, layoutMetadata),
             };
         }
