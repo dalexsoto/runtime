@@ -162,3 +162,71 @@ public struct F128_S
     public F128_S_S0 F1;
     public uint F2;
 }
+
+// Differential vectors from docs/design/interop/swift/lowering.md.
+
+// V22 (DV-8ON4-PACK4): a misaligned 8-byte primitive never survives as an
+// 8-byte tagged element; its bytes dissolve into opaque chunks re-emitted at
+// aligned boundaries. Matches Swift 6.4 lowering of the Clang-imported
+// '#pragma pack(4)' struct.
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Int64, ExpectedLoweringAttribute.Lowered.Int32)]
+[StructLayout(LayoutKind.Sequential, Pack = 4)]
+public struct Packed8On4
+{
+    public int F0;
+    public long F1;
+}
+
+// V23 (DV-8ON4-PACK4-TAIL)
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Int64, ExpectedLoweringAttribute.Lowered.Int64)]
+[StructLayout(LayoutKind.Sequential, Pack = 4)]
+public struct Packed8On4Tail
+{
+    public int F0;
+    public long F1;
+    public int F2;
+}
+
+// V24 (DV-8ON4-PACK4-MID)
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Int64, ExpectedLoweringAttribute.Lowered.Int64, ExpectedLoweringAttribute.Lowered.Int32)]
+[StructLayout(LayoutKind.Sequential, Pack = 4)]
+public struct Packed8On4Mid
+{
+    public long F0;
+    public int F1;
+    public long F2;
+}
+
+// V25 (formerly open vector OV2): two opaque intervals separated by a gap
+// bridge when the first interval's end sentinel shares a pointer-sized block
+// with the second interval's start, matching the CoreCLR VM formulation.
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Int64, ExpectedLoweringAttribute.Lowered.Int32, Offsets = [0x8, 0x10])]
+[StructLayout(LayoutKind.Explicit, Size = 20)]
+public struct BlockBoundaryGapBridge
+{
+    [FieldOffset(8)] public int F0;
+    [FieldOffset(12)] public int F1;
+    [FieldOffset(18)] public short F2;
+}
+
+// V26 (formerly open vector OV3): an overlapping explicit-layout field forces
+// the full conflicting range opaque, extended to the conflicting tag's
+// natural alignment, matching the CoreCLR VM.
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Int64, Offsets = [0x0])]
+[StructLayout(LayoutKind.Explicit)]
+public struct OverlappingDoubleByte
+{
+    [FieldOffset(0)] public double F0;
+    [FieldOffset(2)] public byte F1;
+}
+
+// V27: pointers lower as opaque pointer-sized ranges (not typed Int64
+// intervals), so they participate in opaque gap bridging exactly like the
+// CoreCLR VM's ranges do.
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Int64, ExpectedLoweringAttribute.Lowered.Int32)]
+[StructLayout(LayoutKind.Explicit, Size = 12)]
+public struct PointerBlockBoundaryGapBridge
+{
+    [FieldOffset(0)] public nint F0;
+    [FieldOffset(10)] public short F1;
+}
