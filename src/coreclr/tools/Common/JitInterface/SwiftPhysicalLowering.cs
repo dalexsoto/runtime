@@ -24,6 +24,10 @@ namespace Internal.JitInterface
             Int64,
             Float,
             Double,
+            // ARM64 only; see the vector rules in
+            // docs/design/interop/swift/lowering.md.
+            Vector64,
+            Vector128,
         }
 
         private static int GetAlignment(LoweredType tag)
@@ -32,6 +36,8 @@ namespace Internal.JitInterface
                 LoweredType.Int64 => 8,
                 LoweredType.Float => 4,
                 LoweredType.Double => 8,
+                LoweredType.Vector64 => 8,
+                LoweredType.Vector128 => 16,
                 _ => 1,
             };
 
@@ -87,6 +93,31 @@ namespace Internal.JitInterface
 
         private static void AddTypeToLowering(LoweredType[] bytes, TypeDesc type, int offset)
         {
+            // Vector64<T>/Vector128<T> lower as single hardware-vector
+            // elements passed in SIMD registers, matching Swift's lowering of
+            // SIMD types (one element per 16-byte-or-smaller vector chunk).
+            // Other SIMD-accelerated types (Vector2/3/4, Vector<T>) keep the
+            // recursive field lowering; they must not be used to represent
+            // Swift SIMD values. ARM64 only: Swift's SIMD lowering is
+            // target-dependent and other targets are out of scope.
+            if (type.Context.Target.Architecture == TargetArchitecture.ARM64
+                && type.GetTypeDefinition() is MetadataType vectorType
+                && vectorType.Module == type.Context.SystemModule
+                && vectorType.Namespace == "System.Runtime.Intrinsics"u8)
+            {
+                if (vectorType.Name == "Vector64`1"u8)
+                {
+                    SetLoweringRange(bytes, offset, 8, LoweredType.Vector64);
+                    return;
+                }
+
+                if (vectorType.Name == "Vector128`1"u8)
+                {
+                    SetLoweringRange(bytes, offset, 16, LoweredType.Vector128);
+                    return;
+                }
+            }
+
             if (type is MetadataType { IsInlineArray: true } inlineArrayType)
             {
                 type = new TypeWithRepeatedFields(inlineArrayType);
@@ -171,6 +202,9 @@ namespace Internal.JitInterface
                     || (i % 4 == 0 && loweredBytes[i] == LoweredType.Float)
                     // We're starting a new double or int64_t (as we're aligned)
                     || (i % 8 == 0 && loweredBytes[i] is LoweredType.Double or LoweredType.Int64)
+                    // We're starting a new 8-byte or 16-byte vector (as we're aligned)
+                    || (i % 8 == 0 && loweredBytes[i] == LoweredType.Vector64)
+                    || (i % 16 == 0 && loweredBytes[i] == LoweredType.Vector128)
                     // We've changed interval types
                     || loweredBytes[i] != loweredBytes[i - 1];
 
@@ -223,6 +257,12 @@ namespace Internal.JitInterface
                         break;
                     case LoweredType.Double:
                         loweredTypes.Add((CorInfoType.CORINFO_TYPE_DOUBLE, interval.Offset));
+                        break;
+                    case LoweredType.Vector64:
+                        loweredTypes.Add((CorInfoType.CORINFO_TYPE_VECTOR64, interval.Offset));
+                        break;
+                    case LoweredType.Vector128:
+                        loweredTypes.Add((CorInfoType.CORINFO_TYPE_VECTOR128, interval.Offset));
                         break;
                     case LoweredType.Opaque:
                     {

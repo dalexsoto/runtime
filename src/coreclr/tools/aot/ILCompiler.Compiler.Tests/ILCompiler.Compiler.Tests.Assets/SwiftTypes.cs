@@ -230,3 +230,55 @@ public struct PointerBlockBoundaryGapBridge
     [FieldOffset(0)] public nint F0;
     [FieldOffset(10)] public short F1;
 }
+
+
+// Vector lowering vectors (ARM64; docs/design/interop/swift/lowering.md "SIMD status").
+// Vector64<T>/Vector128<T> lower as single hardware-vector elements; each
+// vector chunk counts one element toward the 4-element cap.
+
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Vector128)]
+public struct SingleVector128
+{
+    public System.Runtime.Intrinsics.Vector128<float> F0;
+}
+
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Vector64)]
+public struct SingleVector64
+{
+    public System.Runtime.Intrinsics.Vector64<float> F0;
+}
+
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Vector128, ExpectedLoweringAttribute.Lowered.Int64)]
+public struct VectorAndScalar
+{
+    public System.Runtime.Intrinsics.Vector128<float> F0;
+    public long F1;
+}
+
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Vector128, ExpectedLoweringAttribute.Lowered.Vector128, ExpectedLoweringAttribute.Lowered.Vector128, ExpectedLoweringAttribute.Lowered.Vector128)]
+public struct FourVector128
+{
+    public System.Runtime.Intrinsics.Vector128<float> F0;
+    public System.Runtime.Intrinsics.Vector128<float> F1;
+    public System.Runtime.Intrinsics.Vector128<float> F2;
+    public System.Runtime.Intrinsics.Vector128<float> F3;
+}
+
+[ExpectedLowering]
+public struct FiveVector128
+{
+    public System.Runtime.Intrinsics.Vector128<float> F0;
+    public System.Runtime.Intrinsics.Vector128<float> F1;
+    public System.Runtime.Intrinsics.Vector128<float> F2;
+    public System.Runtime.Intrinsics.Vector128<float> F3;
+    public System.Runtime.Intrinsics.Vector128<float> F4;
+}
+
+// Vector256<T> has no direct mapping but its two Vector128 fields lower as
+// two 16-byte vector chunks, matching Swift's pre-splitting of 32-byte
+// vectors.
+[ExpectedLowering(ExpectedLoweringAttribute.Lowered.Vector128, ExpectedLoweringAttribute.Lowered.Vector128)]
+public struct SingleVector256
+{
+    public System.Runtime.Intrinsics.Vector256<float> F0;
+}

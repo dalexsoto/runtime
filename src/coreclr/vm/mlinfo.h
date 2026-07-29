@@ -230,7 +230,8 @@ private:
 
 struct ItfMarshalInfo;
 
-bool IsValidForGenericMarshalling(MethodTable* pMT, bool isFieldScenario, bool builtInMarshallingEnabled = true);
+bool IsValidForGenericMarshalling(MethodTable* pMT, bool isFieldScenario, bool builtInMarshallingEnabled = true, bool allowSwiftHardwareVectors = false);
+bool IsSwiftCallConvMethod(MethodDesc* pMD);
 
 class MarshalInfo
 {

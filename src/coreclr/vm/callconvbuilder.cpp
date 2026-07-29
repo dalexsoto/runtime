@@ -538,6 +538,19 @@ bool CallConv::TryGetCallingConventionFromUnmanagedCallersOnly(_In_ MethodDesc* 
     // Validate usage
     COMDelegate::ThrowIfInvalidUnmanagedCallersOnlyUsage(pMD);
 
+    return TryGetCallingConventionFromUnmanagedCallersOnlyNoValidation(pMD, pCallConv);
+}
+
+// Parses the attribute's calling conventions without validating the method's
+// UnmanagedCallersOnly usage. Callers reached from usage validation itself
+// (for example PInvoke::MarshalingRequired) must use this variant to avoid
+// infinite recursion.
+bool CallConv::TryGetCallingConventionFromUnmanagedCallersOnlyNoValidation(_In_ MethodDesc* pMD, _Out_ CorInfoCallConvExtension* pCallConv)
+{
+    STANDARD_VM_CONTRACT;
+
+    _ASSERTE(pMD != NULL && pMD->HasUnmanagedCallersOnlyAttribute());
+
     BYTE* pData = NULL;
     LONG cData = 0;
 

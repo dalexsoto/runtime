@@ -3050,6 +3050,16 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
     if (retCorType == ELEMENT_TYPE_VALUETYPE && !thReturnType.IsNull() && !thReturnType.IsTypeDesc())
     {
         MethodTable* pRetMT = thReturnType.AsMethodTable();
+        if (pRetMT->IsValueType() &&
+            (pRetMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR64T)) ||
+             pRetMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR128T))))
+        {
+            // Vector returns use SIMD result registers under the Swift
+            // calling convention (supported by the JIT on ARM64); the
+            // interpreter rejects them deterministically.
+            COMPlusThrow(kInvalidProgramException);
+        }
+
         if (pRetMT->IsValueType() && !pRetMT->IsHFA() &&
             !pRetMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR64T)) &&
             !pRetMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR128T)) &&
@@ -3061,6 +3071,18 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
             pRetMT->GetNativeSwiftPhysicalLowering(&lowering, false);
             if (!lowering.byReference && lowering.numLoweredElements > 0)
             {
+                // The interpreter does not implement SIMD-register argument
+                // and return passing for the Swift calling convention; reject
+                // deterministically instead of misreading vector registers.
+                for (size_t i = 0; i < lowering.numLoweredElements; i++)
+                {
+                    if ((lowering.loweredElements[i] == CORINFO_TYPE_VECTOR64) ||
+                        (lowering.loweredElements[i] == CORINFO_TYPE_VECTOR128))
+                    {
+                        COMPlusThrow(kInvalidProgramException);
+                    }
+                }
+
                 m_hasSwiftReturnLowering = true;
                 m_swiftReturnLowering = lowering;
 #if LOG_COMPUTE_CALL_STUB
@@ -3183,6 +3205,19 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
                 if (!lowering.byReference && lowering.numLoweredElements > 0)
                 {
+                    // The interpreter does not implement SIMD-register
+                    // argument passing for the Swift calling convention;
+                    // reject deterministically instead of misreading vector
+                    // registers.
+                    for (size_t i = 0; i < lowering.numLoweredElements; i++)
+                    {
+                        if ((lowering.loweredElements[i] == CORINFO_TYPE_VECTOR64) ||
+                            (lowering.loweredElements[i] == CORINFO_TYPE_VECTOR128))
+                        {
+                            COMPlusThrow(kInvalidProgramException);
+                        }
+                    }
+
                     newArgCount += (int)lowering.numLoweredElements;
                     continue;
                 }

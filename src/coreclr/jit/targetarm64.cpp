@@ -52,6 +52,47 @@ Arm64Classifier::Arm64Classifier(const ClassifierInfo& info)
 // Returns:
 //   Classification information for the parameter.
 //
+#ifdef SWIFT_SUPPORT
+//-----------------------------------------------------------------------------
+// ClassifySwiftVector:
+//   Classify a lowered Swift hardware-vector element (8-byte or 16-byte).
+//
+// Parameters:
+//   comp - Compiler instance
+//   type - TYP_SIMD8 or TYP_SIMD16
+//
+// Returns:
+//   Classification information: the next SIMD register, or a
+//   naturally-aligned stack slot once SIMD registers are exhausted.
+//
+// Remarks:
+//   Swift assigns vector values from the same sequential V-register file as
+//   scalar floating-point values and aligns stack-passed vectors to their
+//   natural alignment, which differs from the native HFA/HVA stack rule.
+//
+ABIPassingInformation Arm64Classifier::ClassifySwiftVector(Compiler* comp, var_types type)
+{
+    assert(varTypeIsSIMD(type));
+    unsigned size = genTypeSize(type);
+    assert((size == 8) || (size == 16));
+
+    if (m_floatRegs.Count() > 0)
+    {
+        return ABIPassingInformation::FromSegmentByValue(comp,
+                                                         ABIPassingSegment::InRegister(m_floatRegs.Dequeue(), 0,
+                                                                                       size));
+    }
+
+    m_stackArgSize = roundUp(m_stackArgSize, size);
+    ABIPassingSegment segment = ABIPassingSegment::OnStack(m_stackArgSize, 0, size);
+    m_stackArgSize += size;
+    // After passing any floating value on the stack, we should not
+    // enregister more floating values.
+    m_floatRegs.Clear();
+    return ABIPassingInformation::FromSegmentByValue(comp, segment);
+}
+#endif // SWIFT_SUPPORT
+
 ABIPassingInformation Arm64Classifier::Classify(Compiler*    comp,
                                                 var_types    type,
                                                 ClassLayout* structLayout,

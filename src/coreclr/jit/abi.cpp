@@ -720,6 +720,18 @@ ABIPassingInformation SwiftABIClassifier::Classify(Compiler*    comp,
                                                                                              TARGET_POINTER_SIZE));
     }
 
+#ifdef TARGET_ARM64
+    if (varTypeIsSIMD(type))
+    {
+        // A lowered Swift hardware-vector value (Vector64<T>/Vector128<T>):
+        // one SIMD register or a naturally-aligned stack slot.
+        return m_classifier.ClassifySwiftVector(comp, type);
+    }
+#else
+    // Vector lowering elements are only produced on ARM64.
+    assert(!varTypeIsSIMD(type));
+#endif
+
     if (type == TYP_STRUCT)
     {
         const CORINFO_SWIFT_LOWERING* lowering = comp->GetSwiftLowering(structLayout->GetClassHandle());
@@ -734,7 +746,14 @@ ABIPassingInformation SwiftABIClassifier::Classify(Compiler*    comp,
         for (unsigned i = 0; i < lowering->numLoweredElements; i++)
         {
             var_types             elemType = JITtype2varType(lowering->loweredElements[i]);
+#ifdef TARGET_ARM64
+            ABIPassingInformation elemInfo = varTypeIsSIMD(elemType)
+                                                 ? m_classifier.ClassifySwiftVector(comp, elemType)
+                                                 : m_classifier.Classify(comp, elemType, nullptr, WellKnownArg::None);
+#else
+            assert(!varTypeIsSIMD(elemType));
             ABIPassingInformation elemInfo = m_classifier.Classify(comp, elemType, nullptr, WellKnownArg::None);
+#endif
 
             for (const ABIPassingSegment& seg : elemInfo.Segments())
             {

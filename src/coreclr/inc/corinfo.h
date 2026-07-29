@@ -617,6 +617,13 @@ enum CorInfoType
     CORINFO_TYPE_VALUECLASS      = 0x12,
     CORINFO_TYPE_CLASS           = 0x13,
 
+    // The vector types below are only produced as CORINFO_SWIFT_LOWERING
+    // elements (8-byte and 16-byte hardware vectors passed in SIMD
+    // registers by the Swift calling convention). They are never returned
+    // from signature/type queries such as getArgType.
+    CORINFO_TYPE_VECTOR64        = 0x14,
+    CORINFO_TYPE_VECTOR128      = 0x15,
+
     CORINFO_TYPE_COUNT,                         // number of jit types
 };
 
@@ -938,6 +945,12 @@ enum CorInfoClassId
     CLASSID_STRING,
     CLASSID_ARGUMENT_HANDLE,
     CLASSID_RUNTIME_TYPE,
+    // Canonical instantiations of the hardware vector types
+    // (Vector64<float>/Vector128<float>); used for Swift lowering
+    // (CORINFO_TYPE_VECTOR64/CORINFO_TYPE_VECTOR128 elements), where only
+    // the size and SIMD-register classification matter.
+    CLASSID_VECTOR64_T,
+    CLASSID_VECTOR128_T,
 };
 
 enum CorInfoInline

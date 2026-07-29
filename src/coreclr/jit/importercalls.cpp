@@ -2268,6 +2268,35 @@ const CORINFO_SWIFT_LOWERING* Compiler::GetSwiftLowering(CORINFO_CLASS_HANDLE hC
 }
 
 //------------------------------------------------------------------------
+// impIsSwiftSupportedVectorClass: Check whether a class handle is one of the
+// SIMD types with a specified Swift lowering (Vector64<T>/Vector128<T>,
+// ARM64 only). All other SIMD types are rejected in CallConvSwift
+// signatures; see docs/design/interop/swift/lowering.md "SIMD status".
+//
+// Arguments:
+//    clsHnd - Class handle of the SIMD-typed value
+//
+// Returns:
+//    true if the type has a specified Swift lowering
+//
+bool Compiler::impIsSwiftSupportedVectorClass(CORINFO_CLASS_HANDLE clsHnd)
+{
+#ifdef TARGET_ARM64
+    if ((clsHnd == NO_CLASS_HANDLE) || !info.compCompHnd->isIntrinsicType(clsHnd))
+    {
+        return false;
+    }
+
+    const char* namespaceName;
+    const char* className = info.compCompHnd->getClassNameFromMetadata(clsHnd, &namespaceName);
+    return (strcmp(namespaceName, "System.Runtime.Intrinsics") == 0) &&
+           ((strcmp(className, "Vector64`1") == 0) || (strcmp(className, "Vector128`1") == 0));
+#else
+    return false;
+#endif
+}
+
+//------------------------------------------------------------------------
 // impPopArgsForSwiftCall: Pop arguments from IL stack to a Swift pinvoke node.
 //
 // Arguments:
@@ -2452,7 +2481,16 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
 
         if (varTypeIsSIMD(arg->GetSignatureType()))
         {
-            IMPL_LIMITATION("SIMD types are currently unsupported in Swift calls");
+            if (!impIsSwiftSupportedVectorClass(arg->GetSignatureClassHandle()))
+            {
+                IMPL_LIMITATION("SIMD types other than Vector64/Vector128 are unsupported in Swift calls");
+            }
+
+            // A hardware-vector argument is already exactly its single
+            // lowered element (one SIMD register); leave the argument as is.
+            JITDUMP("  Argument %u is a hardware-vector value; no expansion needed\n", argIndex);
+            arg = arg->GetNext();
+            continue;
         }
 
         JITDUMP("  Argument %u is a struct [%06u]\n", argIndex, dspTreeID(arg->GetNode()));
@@ -2535,6 +2573,26 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
                     // address exposure instead.
                     unsigned sizeToRead = min(structVal->GetLayout(this)->GetSize() - offset, genTypeSize(loweredType));
                     assert(sizeToRead > 0);
+
+                    if (varTypeIsSIMD(loweredType))
+                    {
+                        // A vector element always covers whole vector fields;
+                        // read it directly and pass it with the canonical
+                        // vector class layout.
+                        assert(sizeToRead == genTypeSize(loweredType));
+                        loweredNode =
+                            gtNewLclFldNode(structVal->GetLclNum(), loweredType, structVal->GetLclOffs() + offset);
+
+                        CorInfoClassId       vectorClassId = (loweredType == TYP_SIMD8) ? CLASSID_VECTOR64_T : CLASSID_VECTOR128_T;
+                        CORINFO_CLASS_HANDLE vectorClsHnd  = info.compCompHnd->getBuiltinClass(vectorClassId);
+                        NewCallArg           vectorArg = NewCallArg::Struct(loweredNode, loweredType, typGetObjLayout(vectorClsHnd));
+
+                        JITDUMP("    Adding expanded vector argument [%06u]\n", dspTreeID(loweredNode));
+                        DISPTREE(loweredNode);
+
+                        insertAfter = call->gtArgs.InsertAfter(this, insertAfter, vectorArg);
+                        continue;
+                    }
 
                     if (sizeToRead == genTypeSize(loweredType))
                     {

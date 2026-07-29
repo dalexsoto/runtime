@@ -645,9 +645,9 @@ void Compiler::lvaInitUserArgs(unsigned* curVarNum, unsigned skipArgs, unsigned 
 #ifdef SWIFT_SUPPORT
         if (info.compCallConv == CorInfoCallConvExtension::Swift)
         {
-            if (varTypeIsSIMD(varDsc))
+            if (varTypeIsSIMD(varDsc) && !impIsSwiftSupportedVectorClass(typeHnd))
             {
-                IMPL_LIMITATION("SIMD types are currently unsupported in Swift reverse pinvokes");
+                IMPL_LIMITATION("SIMD types other than Vector64/Vector128 are unsupported in Swift reverse pinvokes");
             }
 
             if (lvaInitSpecialSwiftParam(argLst, *curVarNum, strip(corInfoType), typeHnd,

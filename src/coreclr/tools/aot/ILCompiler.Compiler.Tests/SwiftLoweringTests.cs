@@ -27,12 +27,16 @@ namespace ILCompiler.Compiler.Tests
             Int8,
             Int16,
             Int32,
-            Int64
+            Int64,
+            Vector64,
+            Vector128
         }
 
         public static IEnumerable<object[]> DiscoverSwiftTypes()
         {
-            var target = new TargetDetails(TargetArchitecture.X64, TargetOS.Windows, TargetAbi.NativeAot);
+            // ARM64 is the primary in-scope Swift target and the only one with
+            // vector lowering; the scalar rules are architecture-independent.
+            var target = new TargetDetails(TargetArchitecture.ARM64, TargetOS.OSX, TargetAbi.NativeAot);
             var context  = new CompilerTypeSystemContext(target, SharedGenericsMode.CanonicalReferenceTypes, DelegateFeature.All);
 
             context.InputFilePaths = new Dictionary<string, string> {
@@ -121,6 +125,8 @@ namespace ILCompiler.Compiler.Tests
                 ExpectedLowering.Int16 => 2,
                 ExpectedLowering.Int32 => 4,
                 ExpectedLowering.Int64 => 8,
+                ExpectedLowering.Vector64 => 8,
+                ExpectedLowering.Vector128 => 16,
                 _ => throw new ArgumentOutOfRangeException(nameof(expectedLowering))
             };
         }
@@ -131,6 +137,8 @@ namespace ILCompiler.Compiler.Tests
             {
                 ExpectedLowering.Float => CorInfoType.CORINFO_TYPE_FLOAT,
                 ExpectedLowering.Double => CorInfoType.CORINFO_TYPE_DOUBLE,
+                ExpectedLowering.Vector64 => CorInfoType.CORINFO_TYPE_VECTOR64,
+                ExpectedLowering.Vector128 => CorInfoType.CORINFO_TYPE_VECTOR128,
                 ExpectedLowering.Int8 => CorInfoType.CORINFO_TYPE_BYTE,
                 ExpectedLowering.Int16 => CorInfoType.CORINFO_TYPE_SHORT,
                 ExpectedLowering.Int32 => CorInfoType.CORINFO_TYPE_INT,

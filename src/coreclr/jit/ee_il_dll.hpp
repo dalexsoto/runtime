@@ -230,6 +230,13 @@ inline var_types JITtype2varType(CorInfoType type)
         TYP_BYREF,  // CORINFO_TYPE_BYREF           = 0x11,
         TYP_STRUCT, // CORINFO_TYPE_VALUECLASS      = 0x12,
         TYP_REF,    // CORINFO_TYPE_CLASS           = 0x13,
+#ifdef FEATURE_SIMD
+        TYP_SIMD8,  // CORINFO_TYPE_VECTOR64        = 0x14,
+        TYP_SIMD16, // CORINFO_TYPE_VECTOR128       = 0x15,
+#else
+        TYP_UNDEF,  // CORINFO_TYPE_VECTOR64        = 0x14,
+        TYP_UNDEF,  // CORINFO_TYPE_VECTOR128       = 0x15,
+#endif
     };
 
     // spot check to make certain enumerations have not changed
@@ -275,6 +282,13 @@ inline var_types JitType2PreciseVarType(CorInfoType type)
         TYP_BYREF,  // CORINFO_TYPE_BYREF           = 0x11,
         TYP_STRUCT, // CORINFO_TYPE_VALUECLASS      = 0x12,
         TYP_REF,    // CORINFO_TYPE_CLASS           = 0x13,
+#ifdef FEATURE_SIMD
+        TYP_SIMD8,  // CORINFO_TYPE_VECTOR64        = 0x14,
+        TYP_SIMD16, // CORINFO_TYPE_VECTOR128       = 0x15,
+#else
+        TYP_UNDEF,  // CORINFO_TYPE_VECTOR64        = 0x14,
+        TYP_UNDEF,  // CORINFO_TYPE_VECTOR128       = 0x15,
+#endif
 
     };
 

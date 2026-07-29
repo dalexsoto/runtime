@@ -4035,6 +4035,20 @@ CORINFO_CLASS_HANDLE CEEInfo::getBuiltinClass(CorInfoClassId classId)
     case CLASSID_TYPE_HANDLE:
         result = CORINFO_CLASS_HANDLE(CoreLibBinder::GetClass(CLASS__TYPE_HANDLE));
         break;
+    case CLASSID_VECTOR64_T:
+    case CLASSID_VECTOR128_T:
+    {
+        // Return the canonical float instantiation; only the size and
+        // SIMD-register classification are consumed.
+        MethodTable* pVectorMT = CoreLibBinder::GetClass(
+            classId == CLASSID_VECTOR64_T ? CLASS__VECTOR64T : CLASS__VECTOR128T);
+        TypeHandle thFloat(CoreLibBinder::GetElementType(ELEMENT_TYPE_R4));
+        Instantiation inst(&thFloat, 1);
+        result = CORINFO_CLASS_HANDLE(
+            ClassLoader::LoadGenericInstantiationThrowing(pVectorMT->GetModule(), pVectorMT->GetCl(), inst)
+                .GetMethodTable());
+        break;
+    }
     case CLASSID_FIELD_HANDLE:
         result = CORINFO_CLASS_HANDLE(CoreLibBinder::GetClass(CLASS__FIELD_HANDLE));
         break;

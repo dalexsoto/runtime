@@ -3002,6 +3002,18 @@ namespace Internal.JitInterface
                 case CorInfoClassId.CLASSID_TYPE_HANDLE:
                     return ObjectToHandle(_compilation.TypeSystemContext.GetWellKnownType(WellKnownType.RuntimeTypeHandle));
 
+                case CorInfoClassId.CLASSID_VECTOR64_T:
+                case CorInfoClassId.CLASSID_VECTOR128_T:
+                {
+                    // Return the canonical float instantiation; only the size
+                    // and SIMD-register classification are consumed.
+                    MetadataType vectorType = _compilation.TypeSystemContext.SystemModule.GetKnownType(
+                        "System.Runtime.Intrinsics"u8,
+                        classId == CorInfoClassId.CLASSID_VECTOR64_T ? "Vector64`1"u8 : "Vector128`1"u8);
+                    TypeDesc floatType = _compilation.TypeSystemContext.GetWellKnownType(WellKnownType.Single);
+                    return ObjectToHandle(vectorType.MakeInstantiatedType(floatType));
+                }
+
                 case CorInfoClassId.CLASSID_FIELD_HANDLE:
                     return ObjectToHandle(_compilation.TypeSystemContext.GetWellKnownType(WellKnownType.RuntimeFieldHandle));
 

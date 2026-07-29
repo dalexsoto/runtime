@@ -3378,6 +3378,18 @@ BOOL PInvoke::MarshalingRequired(
             return TRUE;
 
         callConv = sigInfo.GetCallConv();
+
+#ifdef TARGET_ARM64
+        // UnmanagedCallersOnly conventions come from the attribute rather
+        // than signature modopts. The no-validation variant must be used:
+        // this function is reached from the usage validation itself.
+        if (pMD->HasUnmanagedCallersOnlyAttribute())
+        {
+            CorInfoCallConvExtension ucoCallConv;
+            if (CallConv::TryGetCallingConventionFromUnmanagedCallersOnlyNoValidation(pMD, &ucoCallConv))
+                callConv = ucoCallConv;
+        }
+#endif // TARGET_ARM64
     }
 
     if (sigPointer.IsNull())
@@ -3457,7 +3469,8 @@ BOOL PInvoke::MarshalingRequired(
             case ELEMENT_TYPE_GENERICINST:
             {
                 TypeHandle hndArgType = arg.GetTypeHandleThrowing(pModule, pTypeContext);
-                bool isValidGeneric = IsValidForGenericMarshalling(hndArgType.GetMethodTable(), false, runtimeMarshallingEnabled);
+                bool isValidGeneric = IsValidForGenericMarshalling(hndArgType.GetMethodTable(), false, runtimeMarshallingEnabled,
+                                                                   callConv == CorInfoCallConvExtension::Swift);
                 if(!hndArgType.IsValueType() ||  !isValidGeneric)
                     return true;
 
