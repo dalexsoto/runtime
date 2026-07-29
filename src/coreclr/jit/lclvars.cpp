@@ -724,14 +724,15 @@ bool Compiler::lvaInitSpecialSwiftParam(CORINFO_ARG_LIST_HANDLE argHnd,
     {
         if (argIsByrefOrPtr)
         {
-            BADCODE("Expected SwiftSelf struct, got pointer/reference");
+            BADCODE3("Expected SwiftSelf struct, got pointer/reference", " at parameter V%02u", lclNum);
         }
 
         if (lvaSwiftSelfArg != BAD_VAR_NUM)
         {
-            BADCODE("Duplicate SwiftSelf parameter");
+            BADCODE3("Duplicate SwiftSelf parameter", " at parameter V%02u", lclNum);
         }
 
+        JITDUMP("Parameter V%02u is SwiftSelf; passed in the Swift self register\n", lclNum);
         lvaSwiftSelfArg = lclNum;
         return true;
     }
@@ -741,24 +742,24 @@ bool Compiler::lvaInitSpecialSwiftParam(CORINFO_ARG_LIST_HANDLE argHnd,
     {
         if (argIsByrefOrPtr)
         {
-            BADCODE("Expected SwiftSelf<T> struct, got pointer/reference");
+            BADCODE3("Expected SwiftSelf<T> struct, got pointer/reference", " at parameter V%02u", lclNum);
         }
 
         if (lvaSwiftSelfArg != BAD_VAR_NUM)
         {
-            BADCODE("Duplicate SwiftSelf parameter");
+            BADCODE3("Duplicate SwiftSelf parameter", " at parameter V%02u", lclNum);
         }
 
         if (!isLastUserArg)
         {
-            BADCODE("SwiftSelf<T> must be the last argument in the signature");
+            BADCODE3("SwiftSelf<T> must be the last argument in the signature", "; found at parameter V%02u", lclNum);
         }
 
         CORINFO_CLASS_HANDLE selfType    = info.compCompHnd->getTypeInstantiationArgument(typeHnd, 0);
         CorInfoType          selfCorType = info.compCompHnd->asCorInfoType(selfType);
         if (selfCorType != CORINFO_TYPE_VALUECLASS)
         {
-            BADCODE("SwiftSelf<T> expects T to be a value class");
+            BADCODE3("SwiftSelf<T> expects T to be a value class", " at parameter V%02u", lclNum);
         }
 
         const CORINFO_SWIFT_LOWERING* lowering = GetSwiftLowering(selfType);
@@ -784,19 +785,21 @@ bool Compiler::lvaInitSpecialSwiftParam(CORINFO_ARG_LIST_HANDLE argHnd,
     {
         if (argIsByrefOrPtr)
         {
-            BADCODE("Expected SwiftIndirectResult struct, got pointer/reference");
+            BADCODE3("Expected SwiftIndirectResult struct, got pointer/reference", " at parameter V%02u", lclNum);
         }
 
         if (info.compRetType != TYP_VOID)
         {
-            BADCODE("Functions with SwiftIndirectResult parameters must return void");
+            BADCODE3("Functions with SwiftIndirectResult parameters must return void", "; found at parameter V%02u",
+                     lclNum);
         }
 
         if (lvaSwiftIndirectResultArg != BAD_VAR_NUM)
         {
-            BADCODE("Duplicate SwiftIndirectResult parameter");
+            BADCODE3("Duplicate SwiftIndirectResult parameter", " at parameter V%02u", lclNum);
         }
 
+        JITDUMP("Parameter V%02u is SwiftIndirectResult; passed in the Swift indirect-result register\n", lclNum);
         lvaSwiftIndirectResultArg = lclNum;
         return true;
     }
@@ -805,14 +808,15 @@ bool Compiler::lvaInitSpecialSwiftParam(CORINFO_ARG_LIST_HANDLE argHnd,
     {
         if (!argIsByrefOrPtr)
         {
-            BADCODE("Expected SwiftError pointer/reference, got struct");
+            BADCODE3("Expected SwiftError pointer/reference, got struct", " at parameter V%02u", lclNum);
         }
 
         if (lvaSwiftErrorArg != BAD_VAR_NUM)
         {
-            BADCODE("Duplicate SwiftError* parameter");
+            BADCODE3("Duplicate SwiftError* parameter", " at parameter V%02u", lclNum);
         }
 
+        JITDUMP("Parameter V%02u is SwiftError*; error value returned in the Swift error register\n", lclNum);
         lvaSwiftErrorArg = lclNum;
 
         // Instead, all usages of the SwiftError* parameter will be redirected to this pseudolocal.

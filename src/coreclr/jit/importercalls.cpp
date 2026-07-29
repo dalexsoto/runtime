@@ -2320,12 +2320,12 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
                 // For error handling purposes, we expect a pointer/reference to a SwiftError to be passed
                 if (!argIsByrefOrPtr)
                 {
-                    BADCODE("Expected SwiftError pointer/reference, got struct");
+                    BADCODE3("Expected SwiftError pointer/reference, got struct", " at argument %d", argIndex);
                 }
 
                 if (swiftErrorIndex != UINT_MAX)
                 {
-                    BADCODE("Duplicate SwiftError* parameter");
+                    BADCODE3("Duplicate SwiftError* parameter", " at argument %d", argIndex);
                 }
 
                 swiftErrorIndex = argIndex;
@@ -2339,12 +2339,12 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
                 // We expect a SwiftSelf struct to be passed, not a pointer/reference
                 if (argIsByrefOrPtr)
                 {
-                    BADCODE("Expected SwiftSelf struct, got pointer/reference");
+                    BADCODE3("Expected SwiftSelf struct, got pointer/reference", " at argument %d", argIndex);
                 }
 
                 if (swiftSelfIndex != UINT_MAX)
                 {
-                    BADCODE("Duplicate SwiftSelf parameter");
+                    BADCODE3("Duplicate SwiftSelf parameter", " at argument %d", argIndex);
                 }
 
                 swiftSelfIndex = argIndex;
@@ -2356,24 +2356,25 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
                 // We expect a SwiftSelf struct to be passed, not a pointer/reference
                 if (argIsByrefOrPtr)
                 {
-                    BADCODE("Expected SwiftSelf<T> struct, got pointer/reference");
+                    BADCODE3("Expected SwiftSelf<T> struct, got pointer/reference", " at argument %d", argIndex);
                 }
 
                 if (swiftSelfIndex != UINT_MAX)
                 {
-                    BADCODE("Duplicate SwiftSelf parameter");
+                    BADCODE3("Duplicate SwiftSelf parameter", " at argument %d", argIndex);
                 }
 
                 if (argIndex != (sig->numArgs - 1))
                 {
-                    BADCODE("SwiftSelf<T> must be the last argument in the signature");
+                    BADCODE3("SwiftSelf<T> must be the last argument in the signature", "; found at argument %d",
+                             argIndex);
                 }
 
                 selfType                = info.compCompHnd->getTypeInstantiationArgument(argClass, 0);
                 CorInfoType selfCorType = info.compCompHnd->asCorInfoType(selfType);
                 if (selfCorType != CORINFO_TYPE_VALUECLASS)
                 {
-                    BADCODE("SwiftSelf<T> expects T to be a value class");
+                    BADCODE3("SwiftSelf<T> expects T to be a value class", " at argument %d", argIndex);
                 }
 
                 swiftSelfIndex = argIndex;
@@ -2383,17 +2384,19 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
             {
                 if (argIsByrefOrPtr)
                 {
-                    BADCODE("Expected SwiftIndirectResult struct, got pointer/reference");
+                    BADCODE3("Expected SwiftIndirectResult struct, got pointer/reference", " at argument %d",
+                             argIndex);
                 }
 
                 if (sig->retType != CORINFO_TYPE_VOID)
                 {
-                    BADCODE("Functions with SwiftIndirectResult arguments must return void");
+                    BADCODE3("Functions with SwiftIndirectResult arguments must return void",
+                             "; found at argument %d", argIndex);
                 }
 
                 if (swiftIndirectResultIndex != UINT_MAX)
                 {
-                    BADCODE("Duplicate SwiftIndirectResult argument");
+                    BADCODE3("Duplicate SwiftIndirectResult argument", " at argument %d", argIndex);
                 }
 
                 swiftIndirectResultIndex = argIndex;
