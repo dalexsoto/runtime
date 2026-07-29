@@ -2085,6 +2085,12 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
     m_swiftReturnLowering = {};
     m_swiftSelfByRefSize = 0;
     m_hasSwiftError = false;
+    m_swiftSelfArgIndex = -1;
+    m_swiftSelfOriginalArgIndex = -1;
+    m_swiftErrorArgIndex = -1;
+    m_swiftErrorOriginalArgIndex = -1;
+    m_swiftIndirectResultArgIndex = -1;
+    m_swiftIndirectResultOriginalArgIndex = -1;
 
     if (isSwiftCallConv)
     {
@@ -2139,7 +2145,7 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
     }
 
 #if defined(TARGET_APPLE) && defined(TARGET_ARM64)
-    if (swiftIndirectResultCount > 0)
+    if ((swiftIndirectResultCount > 0) && m_isSwiftILStub)
     {
 #if LOG_COMPUTE_CALL_STUB
         LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting Load_SwiftIndirectResult routine\n"));
@@ -2150,8 +2156,37 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
         interpreterStackOffset += INTERP_STACK_SLOT_SIZE;
     }
 
-    // For reverse P/Invoke emit Store_SwiftError before processing regular args because it is excluded from rewritten signature
-    if (m_hasSwiftError && !m_interpreterToNative && !m_isSwiftILStub)
+    // The SwiftSelf and SwiftIndirectResult arguments and (for reverse P/Invoke)
+    // the SwiftError* argument are excluded from the rewritten signature because
+    // they are not passed in ordinary argument registers, but their interpreter
+    // stack slots still live at the position of the original argument. Emit
+    // their routines when the argument walk reaches the recorded position so the
+    // routines read or write the correct interpreter stack slot.
+    auto emitSwiftSelfSlot = [&]()
+    {
+#if LOG_COMPUTE_CALL_STUB
+        LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting SwiftSelf routine\n"));
+#endif
+        TerminateCurrentRoutineIfNotOfNewType(RoutineType::SwiftSelf, pRoutines);
+        pRoutines[m_routineIndex++] = GetSwiftSelfRoutine();
+        m_currentRoutineType = RoutineType::None;
+        interpreterStackOffset += INTERP_STACK_SLOT_SIZE;
+        m_swiftSelfArgIndex = -1;
+    };
+
+    auto emitSwiftIndirectResultSlot = [&]()
+    {
+#if LOG_COMPUTE_CALL_STUB
+        LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting SwiftIndirectResult routine\n"));
+#endif
+        TerminateCurrentRoutineIfNotOfNewType(RoutineType::SwiftIndirectResult, pRoutines);
+        pRoutines[m_routineIndex++] = GetSwiftIndirectResultRoutine();
+        m_currentRoutineType = RoutineType::None;
+        interpreterStackOffset += INTERP_STACK_SLOT_SIZE;
+        m_swiftIndirectResultArgIndex = -1;
+    };
+
+    auto emitSwiftErrorSlot = [&]()
     {
 #if LOG_COMPUTE_CALL_STUB
         LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting Store_SwiftError routine\n"));
@@ -2160,13 +2195,65 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
         pRoutines[m_routineIndex++] = GetSwiftErrorRoutine();
         m_currentRoutineType = RoutineType::None;
         interpreterStackOffset += INTERP_STACK_SLOT_SIZE;
-    }
+        m_swiftErrorArgIndex = -1;
+    };
+
+    auto emitPendingSwiftSpecialSlots = [&](int rewrittenArgIndex)
+    {
+        while (true)
+        {
+            // Find the pending special argument slots that belong before the
+            // current rewritten argument and emit them in original signature
+            // order.
+            int bestOriginalIndex = INT_MAX;
+            int pendingSpecial = 0; // 0 = none, 1 = self, 2 = error, 3 = indirect result
+            if ((m_swiftSelfArgIndex != -1) && (rewrittenArgIndex >= m_swiftSelfArgIndex))
+            {
+                bestOriginalIndex = m_swiftSelfOriginalArgIndex;
+                pendingSpecial = 1;
+            }
+            if ((m_swiftErrorArgIndex != -1) && (rewrittenArgIndex >= m_swiftErrorArgIndex) &&
+                (m_swiftErrorOriginalArgIndex < bestOriginalIndex))
+            {
+                bestOriginalIndex = m_swiftErrorOriginalArgIndex;
+                pendingSpecial = 2;
+            }
+            if ((m_swiftIndirectResultArgIndex != -1) && (rewrittenArgIndex >= m_swiftIndirectResultArgIndex) &&
+                (m_swiftIndirectResultOriginalArgIndex < bestOriginalIndex))
+            {
+                pendingSpecial = 3;
+            }
+
+            switch (pendingSpecial)
+            {
+                case 1:
+                    emitSwiftSelfSlot();
+                    break;
+                case 2:
+                    emitSwiftErrorSlot();
+                    break;
+                case 3:
+                    emitSwiftIndirectResultSlot();
+                    break;
+                default:
+                    return;
+            }
+        }
+    };
 #endif
 
     int ofs;
     while ((ofs = argIt.GetNextOffset()) != TransitionBlock::InvalidOffset)
     {
         LOG2((LF2_INTERPRETER, LL_INFO10000, "Next argument\n"));
+
+#if defined(TARGET_APPLE) && defined(TARGET_ARM64)
+        if (isSwiftCallConv && !m_isSwiftILStub)
+        {
+            emitPendingSwiftSpecialSlots(swiftArgIndex);
+        }
+#endif
+
         ArgLocDesc argLocDesc;
         argIt.GetArgLoc(ofs, &argLocDesc);
 
@@ -2312,6 +2399,15 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
             ProcessArgument(&argIt, argLocDesc, pRoutines);
         }
     }
+
+#if defined(TARGET_APPLE) && defined(TARGET_ARM64)
+    // Emit the routines for any special Swift argument whose interpreter stack
+    // slot lies after all of the rewritten arguments.
+    if (isSwiftCallConv && !m_isSwiftILStub)
+    {
+        emitPendingSwiftSpecialSlots(INT_MAX);
+    }
+#endif
 
     // All arguments were processed, but there is likely a pending ranges to store.
     // Process such a range if any.
@@ -2998,7 +3094,10 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
                     COMPlusThrow(kInvalidProgramException);
                 }
                 swiftSelfCount++;
-                newArgCount++;
+                // SwiftSelf goes in the Swift self register, not in ordinary
+                // argument registers, so it is excluded from the rewritten
+                // signature (the count is unused for Swift IL stubs, which keep
+                // the original signature).
                 continue;
             }
 
@@ -3024,8 +3123,10 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
                 swiftErrorCount++;
                 m_hasSwiftError = true;
 
-                // Direct P/Invoke
-                if (m_interpreterToNative || m_isSwiftILStub)
+                // SwiftError* goes in x21, not in ordinary argument registers, so
+                // it is excluded from the rewritten signature. Swift IL stubs keep
+                // the original signature.
+                if (m_isSwiftILStub)
                 {
                     newArgCount++;
                 }
@@ -3078,9 +3179,11 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
     // Process arguments
     sig.Reset();
+    int originalArgIndex = -1;
     while ((argType = sig.NextArg()) != ELEMENT_TYPE_END)
     {
-        if (!m_interpreterToNative && !m_isSwiftILStub && (argType == ELEMENT_TYPE_PTR || argType == ELEMENT_TYPE_BYREF))
+        originalArgIndex++;
+        if (!m_isSwiftILStub && (argType == ELEMENT_TYPE_PTR || argType == ELEMENT_TYPE_BYREF))
         {
             TypeHandle thArgType = sig.GetLastTypeHandleThrowing();
             MethodTable* pArgMT = nullptr;
@@ -3097,7 +3200,11 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
             if (pArgMT != nullptr && pArgMT == CoreLibBinder::GetClass(CLASS__SWIFT_ERROR))
             {
-                // SwiftError* goes in x21, not in argument registers
+                // SwiftError* goes in x21, not in argument registers. Record where
+                // its interpreter stack slot belongs in the rewritten argument order
+                // so the call stub reads or writes the slot at the argument's position.
+                m_swiftErrorArgIndex = loweringIndex;
+                m_swiftErrorOriginalArgIndex = originalArgIndex;
                 continue;
             }
         }
@@ -3110,16 +3217,24 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
             {
                 if (pArgMT == CoreLibBinder::GetClass(CLASS__SWIFT_INDIRECT_RESULT))
                 {
-                    // SwiftIndirectResult goes in x8, not in argument registers
+                    // SwiftIndirectResult goes in x8, not in argument registers.
+                    // Record where its interpreter stack slot belongs in the
+                    // rewritten argument order so the call stub reads or writes
+                    // the slot at the argument's position.
+                    m_swiftIndirectResultArgIndex = loweringIndex;
+                    m_swiftIndirectResultOriginalArgIndex = originalArgIndex;
                     continue;
                 }
 
                 // Don't lower Swift* types except SwiftSelf<T>
                 if (pArgMT == CoreLibBinder::GetClass(CLASS__SWIFT_SELF))
                 {
-                    SigPointer pArg = sig.GetArgProps();
-                    pArg.ConvertToInternalExactlyOne(sig.GetModule(), sig.GetSigTypeContext(), &swiftSigBuilder);
-                    swiftLoweringInfo[loweringIndex++] = { 0, 0, false, false };
+                    // SwiftSelf goes in the Swift self register, not in ordinary
+                    // argument registers. Record where its interpreter stack slot
+                    // belongs in the rewritten argument order so the call stub
+                    // reads or writes the slot at the argument's position.
+                    m_swiftSelfArgIndex = loweringIndex;
+                    m_swiftSelfOriginalArgIndex = originalArgIndex;
                     continue;
                 }
 
