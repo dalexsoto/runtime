@@ -330,6 +330,7 @@ enum class CorExtendedLayoutKind
 {
     CStruct = 0, // C-style struct
     CUnion = 1, // C-style union
+    SwiftStruct = 2, // Swift struct layout rules (non-shipping prototype; not exposed in the public enum)
 };
 
 // Macros for accessing the members of the CorTypeAttr.

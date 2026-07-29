@@ -8432,6 +8432,27 @@ VOID MethodTableBuilder::PlaceInstanceFields(MethodTable** pByValueClassCache)
         break;
     }
 
+    case EEClassLayoutInfo::LayoutType::SwiftStruct:
+    {
+        if (!pParentMT->IsValueTypeClass()
+            || hasGCFields
+            || bmtFP->fIsByRefLikeType
+            || isAutoLayoutOrHasAutoLayoutField)
+        {
+            // SwiftStruct layout types can't have a parent type, GC fields,
+            // byreflike types, or auto layout fields.
+            BuildMethodTableThrowException(IDS_CLASSLOAD_BADFORMAT);
+        }
+
+        // Explicit size is not used for SwiftStruct layout.
+        pLayoutInfo->SetHasExplicitSize(FALSE);
+        // SwiftStruct layouts are always blittable
+        pLayoutInfo->SetIsBlittable(TRUE);
+
+        HandleSwiftStructLayout(pByValueClassCache);
+        break;
+    }
+
     default:
         UNREACHABLE();
         break;
@@ -8919,6 +8940,32 @@ VOID MethodTableBuilder::HandleCStructLayout(MethodTable** pByValueClassCache)
     {
         BuildMethodTableThrowException(IDS_CLASSLOAD_BADFORMAT);
     }
+}
+
+VOID MethodTableBuilder::HandleSwiftStructLayout(MethodTable** pByValueClassCache)
+{
+    STANDARD_VM_CONTRACT;
+
+    _ASSERTE(HasLayout());
+
+    EEClassLayoutInfo* pLayoutInfo = GetLayoutInfo();
+
+    CONSISTENCY_CHECK(pLayoutInfo != nullptr);
+
+    bmtFP->NumInstanceFieldBytes = pLayoutInfo->InitializeSwiftStructFieldLayout(
+        GetHalfBakedClass()->GetFieldDescList(),
+        pByValueClassCache,
+        bmtEnumFields->dwNumDeclaredFields
+    );
+
+    if (bmtFP->NumInlineArrayElements != 0)
+    {
+        BuildMethodTableThrowException(IDS_CLASSLOAD_BADFORMAT);
+    }
+
+    // Zero-sized SwiftStruct types are allowed: Swift empty structs have
+    // size 0 and stride 1, which maps to the managed zero-sized handling
+    // (instance size 1 with the zero-sized flag).
 }
 
 VOID MethodTableBuilder::HandleCUnionLayout(MethodTable** pByValueClassCache)
@@ -12852,6 +12899,10 @@ BOOL HasLayoutMetadata(Assembly* pAssembly, IMDInternalImport* pInternalImport, 
         else if (kind == CorExtendedLayoutKind::CUnion)
         {
             *pLayoutType = EEClassLayoutInfo::LayoutType::CUnion;
+        }
+        else if (kind == CorExtendedLayoutKind::SwiftStruct)
+        {
+            *pLayoutType = EEClassLayoutInfo::LayoutType::SwiftStruct;
         }
         else
         {

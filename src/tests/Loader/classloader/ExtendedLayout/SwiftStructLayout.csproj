@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <MonoAotIncompatible>true</MonoAotIncompatible>
+    <!-- ExtendedLayoutKind.SwiftStruct is a CoreCLR VM prototype; the
+         managed AOT type system fails closed on the unknown kind. -->
+    <NativeAotIncompatible>true</NativeAotIncompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="SwiftStructLayout.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="SwiftStructTypes.ilproj" />
+    <ProjectReference Include="$(TestLibraryProjectPath)" />
+  </ItemGroup>
+</Project>

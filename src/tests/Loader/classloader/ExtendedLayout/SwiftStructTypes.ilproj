@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.IL">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <MonoAotIncompatible>true</MonoAotIncompatible>
+    <!-- ExtendedLayoutKind.SwiftStruct is a CoreCLR VM prototype; the
+         managed AOT type system fails closed on the unknown kind. -->
+    <NativeAotIncompatible>true</NativeAotIncompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="SwiftStructTypes.il" />
+  </ItemGroup>
+</Project>

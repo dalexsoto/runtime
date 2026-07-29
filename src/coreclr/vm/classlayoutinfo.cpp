@@ -651,6 +651,57 @@ ULONG EEClassLayoutInfo::InitializeCStructFieldLayout(
     return SetInstanceBytesSize(managedSize);
 }
 
+ULONG EEClassLayoutInfo::InitializeSwiftStructFieldLayout(
+    FieldDesc* pFields,
+    MethodTable** pByValueClassCache,
+    ULONG cFields
+)
+{
+    STANDARD_VM_CONTRACT;
+
+    SetLayoutType(LayoutType::SwiftStruct);
+
+    NewArrayHolder<LayoutRawFieldInfo> pInfoArray = new LayoutRawFieldInfo[cFields + 1];
+    UINT32 numInstanceFields;
+    BYTE fieldsAlignmentRequirement;
+    InitializeLayoutFieldInfoArray(pFields, cFields, pByValueClassCache, DEFAULT_PACKING_SIZE, pInfoArray, &numInstanceFields, &fieldsAlignmentRequirement);
+
+    // Swift tail-packing: a nested SwiftStruct field occupies its unpadded
+    // Swift size, not its stride, so following fields pack into the nested
+    // value's tail padding (Swift advances by size; only arrays use stride).
+    for (ULONG i = 0; i < cFields; i++)
+    {
+        if (pFields[i].IsStatic())
+            continue;
+        if (pFields[i].GetFieldType() != ELEMENT_TYPE_VALUETYPE)
+            continue;
+
+        MethodTable* pFieldMT = pByValueClassCache[i];
+        if (pFieldMT != NULL
+            && pFieldMT->HasLayout()
+            && pFieldMT->GetLayoutInfo()->GetLayoutType() == LayoutType::SwiftStruct)
+        {
+            pInfoArray[i].m_placement.m_size = pFieldMT->GetLayoutInfo()->GetSwiftActualSize();
+        }
+    }
+
+    BYTE alignmentRequirement = max<BYTE>(1, fieldsAlignmentRequirement);
+
+    SetAlignmentRequirement(alignmentRequirement);
+    SetPackingSize(DEFAULT_PACKING_SIZE);
+
+    UINT32 lastFieldEnd = CalculateOffsetsForSequentialLayout(pInfoArray, numInstanceFields, 0, DEFAULT_PACKING_SIZE);
+
+    SetFieldOffsets(pFields, cFields, pInfoArray, numInstanceFields);
+
+    // The unpadded Swift size; the managed instance size below is the stride.
+    m_cbSwiftActualSize = lastFieldEnd;
+
+    UINT32 managedSize = AlignSize(lastFieldEnd, alignmentRequirement);
+
+    return SetInstanceBytesSize(managedSize);
+}
+
 ULONG EEClassLayoutInfo::InitializeCUnionFieldLayout(
     FieldDesc* pFields,
     MethodTable** pByValueClassCache,
