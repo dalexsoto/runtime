@@ -4745,7 +4745,12 @@ namespace Internal.JitInterface
                     ThrowHelper.ThrowInvalidProgramException(ExceptionStringID.InvalidProgramAsync, this.MethodBeingCompiled);
                 }
 
-                if (!isFallbackBodyCompilation && MarshalHelpers.IsMarshallingRequired(this.MethodBeingCompiled.Signature, ((MetadataType)this.MethodBeingCompiled.OwningType).Module)) // Only blittable arguments
+                // Synthesized UnmanagedCallersOnly methods (e.g. the startup
+                // code main) carry no attribute blob; only metadata methods can
+                // declare a Swift calling convention.
+                bool isSwiftCallersOnly = this.MethodBeingCompiled.GetTypicalMethodDefinition() is Internal.TypeSystem.Ecma.EcmaMethod
+                    && (this.MethodBeingCompiled.GetUnmanagedCallersOnlyMethodCallingConventions() & UnmanagedCallingConventions.CallingConventionMask) == UnmanagedCallingConventions.Swift;
+                if (!isFallbackBodyCompilation && MarshalHelpers.IsMarshallingRequired(this.MethodBeingCompiled.Signature, ((MetadataType)this.MethodBeingCompiled.OwningType).Module, isSwiftCallersOnly)) // Only blittable arguments
                 {
                     ThrowHelper.ThrowInvalidProgramException(ExceptionStringID.InvalidProgramNonBlittableTypes, this.MethodBeingCompiled);
                 }

@@ -43,5 +43,6 @@
     <Compile Include="DependencyGraphTests.cs" />
     <Compile Include="DevirtualizationTests.cs" />
     <Compile Include="SwiftLoweringTests.cs" />
+    <Compile Include="SwiftValidationParityTests.cs" />
   </ItemGroup>
 </Project>

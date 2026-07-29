@@ -220,7 +220,8 @@ namespace Internal.TypeSystem.Interop
             bool isReturn,
             bool isAnsi,
             MarshallerType marshallerType,
-            out MarshallerKind elementMarshallerKind)
+            out MarshallerKind elementMarshallerKind,
+            bool isSwiftSignature = false)
         {
             elementMarshallerKind = MarshallerKind.Invalid;
 
@@ -411,7 +412,7 @@ namespace Internal.TypeSystem.Interop
                     return MarshallerKind.Invalid;
                 }
 
-                if (!IsValidForGenericMarshalling(type, isField))
+                if (!IsValidForGenericMarshalling(type, isField, builtInMarshallingEnabled: true, allowSwiftHardwareVectors: isSwiftSignature))
                 {
                     // Generic types cannot be marshalled.
                     return MarshallerKind.Invalid;
@@ -866,7 +867,8 @@ namespace Internal.TypeSystem.Interop
         private static bool IsValidForGenericMarshalling(
             TypeDesc type,
             bool isFieldScenario,
-            bool builtInMarshallingEnabled = true)
+            bool builtInMarshallingEnabled = true,
+            bool allowSwiftHardwareVectors = false)
         {
             // Not generic, so passes "generic" test
             if (!type.HasInstantiation)
@@ -879,6 +881,17 @@ namespace Internal.TypeSystem.Interop
             // Built-in marshalling considers the blittability for a generic type.
             if (builtInMarshallingEnabled && !MarshalUtils.IsBlittableType(type))
                 return false;
+
+            // The Swift calling convention on ARM64 has an implemented lowering
+            // for the 8-byte and 16-byte hardware vector types, so they are
+            // valid in CallConvSwift signatures.
+            // See docs/design/interop/swift/lowering.md.
+            if (allowSwiftHardwareVectors
+                && (InteropTypes.IsSystemRuntimeIntrinsicsVector64T(type.Context, type)
+                    || InteropTypes.IsSystemRuntimeIntrinsicsVector128T(type.Context, type)))
+            {
+                return true;
+            }
 
             // Generics (blittable when built-in is enabled) are allowed to be marshalled with the following exceptions:
             // * Nullable<T>: We don't want to be locked into the default behavior as we may want special handling later
@@ -979,9 +992,9 @@ namespace Internal.TypeSystem.Interop
             return module.Assembly is not EcmaAssembly assembly || !assembly.HasAssemblyCustomAttribute("System.Runtime.CompilerServices", "DisableRuntimeMarshallingAttribute");
         }
 
-        public static bool IsMarshallingRequired(MethodSignature methodSig, ModuleDesc moduleContext)
+        public static bool IsMarshallingRequired(MethodSignature methodSig, ModuleDesc moduleContext, bool isSwiftSignature = false)
         {
-            return Marshaller.IsMarshallingRequired(methodSig, moduleContext);
+            return Marshaller.IsMarshallingRequired(methodSig, moduleContext, isSwiftSignature);
         }
     }
 }

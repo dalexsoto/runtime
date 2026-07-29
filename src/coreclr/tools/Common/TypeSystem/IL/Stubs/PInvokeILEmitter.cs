@@ -74,6 +74,15 @@ namespace Internal.IL.Stubs
                 // the instance
                 indexOffset = 1;
             }
+            bool isSwiftSignature = targetMethod switch
+            {
+                DelegateMarshallingMethodThunk => false,
+                CalliMarshallingMethodThunk calliMethod =>
+                    (calliMethod.TargetSignature.GetStandaloneMethodSignatureCallingConventions() & UnmanagedCallingConventions.CallingConventionMask) == UnmanagedCallingConventions.Swift,
+                _ => targetMethod.IsPInvoke
+                    && (targetMethod.GetPInvokeMethodCallingConventions() & UnmanagedCallingConventions.CallingConventionMask) == UnmanagedCallingConventions.Swift,
+            };
+
             ParameterMetadata[] parameterMetadataArray = targetMethod.GetParameterMetadata();
             Marshaller[] marshallers = new Marshaller[methodSig.Length + 1];
             int parameterIndex = 0;
@@ -127,7 +136,8 @@ namespace Internal.IL.Stubs
                                                         flags,
                                                         parameterMetadata.In,
                                                         isHRSwappedRetVal ? true : parameterMetadata.Out,
-                                                        isHRSwappedRetVal ? false : parameterMetadata.Return
+                                                        isHRSwappedRetVal ? false : parameterMetadata.Return,
+                                                        isSwiftSignature
                                                         );
                 }
                 else
