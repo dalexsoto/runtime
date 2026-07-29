@@ -87,6 +87,12 @@ jobs:
           - name: testFilterArg
             value: 'test GC/Scenarios/GC-simulator.csproj'
 
+      # Only build the Swift interop suites when the swift-interop group is
+      # specified (docs/design/interop/swift/roadmap.md).
+      - ${{ if eq(parameters.testGroup, 'swift-interop') }}:
+          - name: testFilterArg
+            value: 'tree Interop/Swift'
+
       - template: /eng/pipelines/common/templates/runtimes/native-test-assets-variables.yml
         parameters:
           runtimeFlavor: coreclr

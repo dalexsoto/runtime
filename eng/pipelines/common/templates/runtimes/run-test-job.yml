@@ -142,6 +142,11 @@ jobs:
         - name: testFilterArg
           value: 'test GC/Scenarios/GC-simulator.csproj'
 
+    # Only run the Swift interop suites when the swift-interop group is specified.
+    - ${{ if eq(parameters.testGroup, 'swift-interop') }}:
+        - name: testFilterArg
+          value: 'tree Interop/Swift'
+
     - template: /eng/pipelines/common/templates/runtimes/native-test-assets-variables.yml
       parameters:
         runtimeFlavor: coreclr
@@ -199,6 +204,8 @@ jobs:
         timeoutInMinutes: 200
     ${{ if in(parameters.testGroup, 'outerloop', 'jit-cfg') }}:
       timeoutInMinutes: 270
+    ${{ if in(parameters.testGroup, 'swift-interop') }}:
+      timeoutInMinutes: 200
     ${{ if in(parameters.testGroup, 'gc-longrunning', 'gc-simulator') }}:
       timeoutInMinutes: 480
     ${{ if in(parameters.testGroup, 'jitstress', 'jitstress-random', 'jitstress-isas-arm', 'jitstressregs-x86', 'jitstressregs', 'jitstress2-jitstressregs', 'gcstress0x3-gcstress0xc', 'ilasm') }}:
@@ -337,7 +344,7 @@ jobs:
         #
         # We only need to do this for a testGroup with more than one or two scenarios, though it isn't functionally
         # a problem to always do it. Thus, we only exempt this setting for a few cases.
-        ${{ if notIn(parameters.testGroup, 'innerloop', 'outerloop', 'ilasm', 'gc-longrunning', 'gc-simulator', 'gc-standalone', 'gc-standalone-server') }}:
+        ${{ if notIn(parameters.testGroup, 'innerloop', 'outerloop', 'ilasm', 'gc-longrunning', 'gc-simulator', 'gc-standalone', 'gc-standalone-server', 'swift-interop') }}:
           msbuildParallelism: '/maxcpucount:55'
 
         ${{ if in(parameters.testGroup, 'innerloop', 'outerloop') }}:
@@ -506,6 +513,11 @@ jobs:
           - normal
         ${{ if in(parameters.testGroup, 'gc-simulator') }}:
           gcSimulatorTests: true
+          scenarios:
+          - normal
+        # The Swift interop group runs the normal scenario; the lane selects
+        # the execution mode (JIT / interpreter / R2R) per leg.
+        ${{ if in(parameters.testGroup, 'swift-interop') }}:
           scenarios:
           - normal
         ${{ if in(parameters.testGroup, 'gc-standalone') }}:

@@ -50,6 +50,11 @@ variables:
         value: 90
       - name: timeoutPerTestInMinutes
         value: 30
+  - ${{ if in(parameters.testGroup, 'swift-interop') }}:
+    - name: timeoutPerTestCollectionInMinutes
+      value: 180
+    - name: timeoutPerTestInMinutes
+      value: 20
   - ${{ if in(parameters.testGroup, 'gc-longrunning', 'gc-simulator') }}:
     - name: timeoutPerTestCollectionInMinutes
       value: 360
