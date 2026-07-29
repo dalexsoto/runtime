@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UseMonoRuntime>false</UseMonoRuntime>
+    <MonoForceInterpreter>false</MonoForceInterpreter>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <TestRuntime>true</TestRuntime>
+    <TargetFramework>$(NetCoreAppCurrent)</TargetFramework>
+    <TargetOS Condition="'$(TargetOS)' == ''">ios</TargetOS>
+    <MainLibraryFileName>iOS.Device.Swift.Test.dll</MainLibraryFileName>
+    <IncludesTestRunner>false</IncludesTestRunner>
+    <ExpectedExitCode>42</ExpectedExitCode>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- On iOS device, CoreCLR-flavor defaults to NativeAOT
+         (eng/testing/tests.mobile.targets). Opt into the CoreCLR RUNTIME PACK
+         (R2R + interpreter fallback, the roadmap's device row) instead. -->
+    <UseNativeAOTRuntime>false</UseNativeAOTRuntime>
+    <!-- Device signing: team 23BQZX22Y5, wildcard profile 15bd1580 (has this
+         device + get-task-allow), identity for David Alejandro Soto Garcia. -->
+    <DevTeamProvisioning Condition="'$(DevTeamProvisioning)' == ''">23BQZX22Y5</DevTeamProvisioning>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ExtendedLayoutKind.SwiftStruct mirrors (IL: the kind is not in the
+         public enum). -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../../../../Interop/Swift/SwiftExtendedLayoutAbi/SwiftExtendedLayoutTypes.ilproj"
+                      GlobalPropertiesToRemove="TargetOS;TargetArchitecture;RuntimeIdentifier;SelfContained;PublishReadyToRun;TestRuntime;UseMonoRuntime" />
+  </ItemGroup>
+
+  <!-- Swift fixture compiled for the DEVICE triple (arm64-apple-ios, not
+       -simulator), bundled into the app; DllImport resolves it from the
+       bundle. -->
+  <Target Name="BuildSwiftFixture" BeforeTargets="Build">
+    <PropertyGroup>
+      <SwiftFixtureDylib>$(IntermediateOutputPath)libSwiftFixture.dylib</SwiftFixtureDylib>
+    </PropertyGroup>
+    <Exec Command="xcrun --sdk iphoneos --show-sdk-path" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="IosSdkPath" />
+    </Exec>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <Exec Command="xcrun swiftc -target arm64-apple-ios15.0 -sdk $(IosSdkPath) -Xlinker -rpath -Xlinker /usr/lib/swift -O -emit-library $(MSBuildThisFileDirectory)SwiftFixture.swift -o $(SwiftFixtureDylib) -module-name SwiftFixture -Xlinker -install_name -Xlinker @rpath/libSwiftFixture.dylib" />
+  </Target>
+
+  <Target Name="AddSwiftFixtureToPublish"
+          DependsOnTargets="BuildSwiftFixture"
+          BeforeTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(SwiftFixtureDylib)">
+        <RelativePath>libSwiftFixture.dylib</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>

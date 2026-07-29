@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UseMonoRuntime>false</UseMonoRuntime>
+    <MonoForceInterpreter>false</MonoForceInterpreter>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <TestRuntime>true</TestRuntime>
+    <TargetFramework>$(NetCoreAppCurrent)</TargetFramework>
+    <TargetOS Condition="'$(TargetOS)' == ''">iossimulator</TargetOS>
+    <MainLibraryFileName>iOS.Simulator.Swift.Test.dll</MainLibraryFileName>
+    <IncludesTestRunner>false</IncludesTestRunner>
+    <ExpectedExitCode>42</ExpectedExitCode>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishReadyToRun>false</PublishReadyToRun>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ExtendedLayoutKind.SwiftStruct mirrors (IL: the kind is not in the
+         public enum). -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../../../../Interop/Swift/SwiftExtendedLayoutAbi/SwiftExtendedLayoutTypes.ilproj"
+                      GlobalPropertiesToRemove="TargetOS;TargetArchitecture;RuntimeIdentifier;SelfContained;PublishReadyToRun;TestRuntime;UseMonoRuntime" />
+  </ItemGroup>
+
+  <!-- The Swift fixture is compiled for the simulator triple and bundled
+       into the app; DllImport resolves it from the bundle. -->
+  <Target Name="BuildSwiftFixture" BeforeTargets="Build">
+    <PropertyGroup>
+      <SwiftFixtureDylib>$(IntermediateOutputPath)libSwiftFixture.dylib</SwiftFixtureDylib>
+    </PropertyGroup>
+    <Exec Command="xcrun --sdk iphonesimulator --show-sdk-path" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="IosSimSdkPath" />
+    </Exec>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <Exec Command="xcrun swiftc -target arm64-apple-ios15.0-simulator -sdk $(IosSimSdkPath) -Xlinker -rpath -Xlinker /usr/lib/swift -O -emit-library $(MSBuildThisFileDirectory)SwiftFixture.swift -o $(SwiftFixtureDylib) -module-name SwiftFixture -Xlinker -install_name -Xlinker @rpath/libSwiftFixture.dylib" />
+  </Target>
+
+  <!-- The compiled fixture must land in the published app bundle: the Apple
+       app builder bundles the publish directory. -->
+  <Target Name="AddSwiftFixtureToPublish"
+          DependsOnTargets="BuildSwiftFixture"
+          BeforeTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(SwiftFixtureDylib)">
+        <RelativePath>libSwiftFixture.dylib</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>
