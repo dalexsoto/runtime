@@ -762,7 +762,8 @@ MarshalInfo::MarshalInfo(Module* pModule,
                          BOOL ThrowOnUnmappableChar,
                          BOOL fEmitsIL,
                          MethodDesc* pMD,
-                         BOOL fLoadCustomMarshal
+                         BOOL fLoadCustomMarshal,
+                         BOOL isSwiftSignature
 #ifdef _DEBUG
                          ,
                          LPCUTF8 pDebugName,
@@ -1871,7 +1872,7 @@ MarshalInfo::MarshalInfo(Module* pModule,
                     break;
 
                 if (!IsValidForGenericMarshalling(m_pMT, IsFieldScenario(), true /* builtInMarshallingEnabled */,
-                                                  IsSwiftCallConvMethod(pMD)))
+                                                  isSwiftSignature || IsSwiftCallConvMethod(pMD)))
                 {
                     m_resID = IDS_EE_BADMARSHAL_GENERICS_RESTRICTION;
                     IfFailGoto(E_FAIL, lFail);

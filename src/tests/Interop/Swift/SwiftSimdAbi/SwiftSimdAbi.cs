@@ -135,6 +135,42 @@ public unsafe class SwiftSimdAbi
         });
     }
 
+    // Vector lowering must behave identically for direct invocation through
+    // delegate* unmanaged[Swift] function pointers (calli): the convention
+    // comes from the signature's modopt rather than a method's metadata, and
+    // the marshalling admittance must read it from there in both the inline
+    // P/Invoke expansion and the VM IL-stub route (a calli inside a try
+    // region with a catch handler cannot be expanded inline).
+    [Fact]
+    public static void TestVectorArgumentViaCalli()
+    {
+        RunOrExpectInterpreterRejection(() =>
+        {
+            IntPtr lib = NativeLibrary.Load(SwiftLib, System.Reflection.Assembly.GetExecutingAssembly(), null);
+            var fn = (delegate* unmanaged[Swift]<Vector64<float>, float>)NativeLibrary.GetExport(lib, "$s12SwiftSimdAbi13sumSimd2FloatySfs5SIMD2VySfGF");
+            Assert.Equal(7f, fn(Vector64.Create(3f, 4f)));
+        });
+    }
+
+    [Fact]
+    public static void TestVectorArgumentViaCalliStubRoute()
+    {
+        RunOrExpectInterpreterRejection(() =>
+        {
+            IntPtr lib = NativeLibrary.Load(SwiftLib, System.Reflection.Assembly.GetExecutingAssembly(), null);
+            var fn = (delegate* unmanaged[Swift]<Vector64<float>, float>)NativeLibrary.GetExport(lib, "$s12SwiftSimdAbi13sumSimd2FloatySfs5SIMD2VySfGF");
+            try
+            {
+                Assert.Equal(7f, fn(Vector64.Create(3f, 4f)));
+            }
+            catch (NullReferenceException)
+            {
+                // Unreachable; the handler exists to force the IL-stub route.
+                Assert.Fail("unreachable");
+            }
+        });
+    }
+
     [Fact]
     public static void TestVectorReturn()
     {

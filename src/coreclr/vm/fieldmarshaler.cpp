@@ -277,7 +277,8 @@ VOID ParseNativeType(Module*                     pModule,
         FALSE, // so we don't need to accurately get the BestFitCustomAttribute data for this construction.
         FALSE, /* fEmitsIL */
         nullptr,
-        FALSE /* fUseCustomMarshal */
+        FALSE, /* fUseCustomMarshal */
+        FALSE /* isSwiftSignature */
 #ifdef _DEBUG
         ,
         szFieldName,

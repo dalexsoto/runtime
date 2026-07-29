@@ -275,7 +275,10 @@ public:
                 BOOL ThrowOnUnmappableChar,
                 BOOL fEmitsIL,
                 MethodDesc* pMD = NULL,
-                BOOL fUseCustomMarshal = TRUE
+                BOOL fUseCustomMarshal = TRUE,
+                BOOL isSwiftSignature = FALSE   // signature-level Swift calling convention
+                                                // (for calli signatures, where no MethodDesc
+                                                // carries the convention)
 #ifdef _DEBUG
                 ,
                 LPCUTF8 pDebugName = NULL,

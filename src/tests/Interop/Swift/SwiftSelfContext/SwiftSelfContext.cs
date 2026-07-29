@@ -166,4 +166,37 @@ public class SelfContextTests
         long sum = fn(new SwiftSelf<FrozenNonEnregisteredStruct>(new FrozenNonEnregisteredStruct { A = 1, B = 2, C = 3, D = 4, E = 5 }));
         Assert.Equal(15, sum);
     }
+
+    // Plain (pointer-sized) SwiftSelf through calli: the shape protocol
+    // witness dispatch uses (self address in the self register, ordinary
+    // trailing arguments). The class dispatch thunk reads only the self
+    // register, so extra ordinary arguments verify that x20 routing is
+    // position-independent for indirect calls too.
+
+    [Fact]
+    public unsafe static void TestDirectCalliWithPlainSelf()
+    {
+        void* pointer = getInstance();
+        IntPtr lib = NativeLibrary.Load(SwiftLib, System.Reflection.Assembly.GetExecutingAssembly(), null);
+        var fn = (delegate* unmanaged[Swift]<SwiftSelf, nint>)NativeLibrary.GetExport(lib, "$s16SwiftSelfContext0B7LibraryC14getMagicNumberSiyFTj");
+        Assert.Equal(42, (long)fn(new SwiftSelf(pointer)));
+    }
+
+    [Fact]
+    public unsafe static void TestDirectCalliWithPlainSelfAfterArgs()
+    {
+        void* pointer = getInstance();
+        IntPtr lib = NativeLibrary.Load(SwiftLib, System.Reflection.Assembly.GetExecutingAssembly(), null);
+        var fn = (delegate* unmanaged[Swift]<nint, nint, SwiftSelf, nint>)NativeLibrary.GetExport(lib, "$s16SwiftSelfContext0B7LibraryC14getMagicNumberSiyFTj");
+        Assert.Equal(42, (long)fn(111, 222, new SwiftSelf(pointer)));
+    }
+
+    [Fact]
+    public unsafe static void TestDirectCalliWithPlainSelfBeforeArgs()
+    {
+        void* pointer = getInstance();
+        IntPtr lib = NativeLibrary.Load(SwiftLib, System.Reflection.Assembly.GetExecutingAssembly(), null);
+        var fn = (delegate* unmanaged[Swift]<SwiftSelf, nint, nint, nint>)NativeLibrary.GetExport(lib, "$s16SwiftSelfContext0B7LibraryC14getMagicNumberSiyFTj");
+        Assert.Equal(42, (long)fn(new SwiftSelf(pointer), 111, 222));
+    }
 }
