@@ -214,6 +214,18 @@ class CallStubGenerator
     int m_swiftIndirectResultArgIndex = -1;
     int m_swiftIndirectResultOriginalArgIndex = -1;
 
+    // Zero-sized Swift struct arguments have no physical representation, so
+    // they are dropped from the rewritten signature entirely; their
+    // interpreter stack slots are skipped at the original argument position.
+    struct SwiftEmptyStructSlot {
+        int rewrittenArgIndex;
+        int originalArgIndex;
+        uint16_t slotBytes;
+    };
+    CQuickArray<SwiftEmptyStructSlot> m_swiftEmptySlots;
+    unsigned m_swiftEmptySlotCount = 0;
+    unsigned m_swiftEmptySlotCursor = 0;
+
     // Swift routine helpers
     PCODE GetSwiftSelfRoutine();
     PCODE GetSwiftSelfByRefRoutine();

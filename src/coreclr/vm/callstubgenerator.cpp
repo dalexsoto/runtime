@@ -10,6 +10,9 @@
 #include "dllimport.h"
 
 extern "C" void InjectInterpStackAlign();
+#if defined(TARGET_APPLE) && defined(TARGET_ARM64)
+extern "C" void Skip_Interp_Slots();
+#endif
 extern "C" void Load_Stack();
 extern "C" void Store_Stack();
 
@@ -2091,6 +2094,8 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
     m_swiftErrorOriginalArgIndex = -1;
     m_swiftIndirectResultArgIndex = -1;
     m_swiftIndirectResultOriginalArgIndex = -1;
+    m_swiftEmptySlotCount = 0;
+    m_swiftEmptySlotCursor = 0;
 
     if (isSwiftCallConv)
     {
@@ -2198,6 +2203,22 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
         m_swiftErrorArgIndex = -1;
     };
 
+    auto emitSwiftEmptyStructSlot = [&]()
+    {
+#if LOG_COMPUTE_CALL_STUB
+        LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting Skip_Interp_Slots routine for a zero-sized struct\n"));
+#endif
+        // A zero-sized struct argument has no registers; skip its
+        // interpreter stack slot(s).
+        uint16_t slotBytes = m_swiftEmptySlots[m_swiftEmptySlotCursor].slotBytes;
+        TerminateCurrentRoutineIfNotOfNewType(RoutineType::None, pRoutines);
+        pRoutines[m_routineIndex++] = (PCODE)Skip_Interp_Slots;
+        pRoutines[m_routineIndex++] = (PCODE)slotBytes;
+        m_currentRoutineType = RoutineType::None;
+        interpreterStackOffset += slotBytes;
+        m_swiftEmptySlotCursor++;
+    };
+
     auto emitPendingSwiftSpecialSlots = [&](int rewrittenArgIndex)
     {
         while (true)
@@ -2206,7 +2227,7 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
             // current rewritten argument and emit them in original signature
             // order.
             int bestOriginalIndex = INT_MAX;
-            int pendingSpecial = 0; // 0 = none, 1 = self, 2 = error, 3 = indirect result
+            int pendingSpecial = 0; // 0 = none, 1 = self, 2 = error, 3 = indirect result, 4 = zero-sized struct
             if ((m_swiftSelfArgIndex != -1) && (rewrittenArgIndex >= m_swiftSelfArgIndex))
             {
                 bestOriginalIndex = m_swiftSelfOriginalArgIndex;
@@ -2221,7 +2242,14 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
             if ((m_swiftIndirectResultArgIndex != -1) && (rewrittenArgIndex >= m_swiftIndirectResultArgIndex) &&
                 (m_swiftIndirectResultOriginalArgIndex < bestOriginalIndex))
             {
+                bestOriginalIndex = m_swiftIndirectResultOriginalArgIndex;
                 pendingSpecial = 3;
+            }
+            if ((m_swiftEmptySlotCursor < m_swiftEmptySlotCount) &&
+                (rewrittenArgIndex >= m_swiftEmptySlots[m_swiftEmptySlotCursor].rewrittenArgIndex) &&
+                (m_swiftEmptySlots[m_swiftEmptySlotCursor].originalArgIndex < bestOriginalIndex))
+            {
+                pendingSpecial = 4;
             }
 
             switch (pendingSpecial)
@@ -2234,6 +2262,9 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
                     break;
                 case 3:
                     emitSwiftIndirectResultSlot();
+                    break;
+                case 4:
+                    emitSwiftEmptyStructSlot();
                     break;
                 default:
                     return;
@@ -3044,6 +3075,7 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
     int newArgCount = 0;
     int swiftSelfCount = 0;
     int swiftErrorCount = 0;
+    unsigned swiftEmptyStructCount = 0;
     swiftIndirectResultCount = 0;
     int argIndex = -1;
     int numFixedArgs = (int)sig.NumFixedArgs();
@@ -3154,6 +3186,13 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
                     newArgCount += (int)lowering.numLoweredElements;
                     continue;
                 }
+
+                if (!lowering.byReference && lowering.numLoweredElements == 0)
+                {
+                    // Zero-sized struct: dropped from the physical signature.
+                    swiftEmptyStructCount++;
+                    continue;
+                }
             }
         }
 
@@ -3167,6 +3206,7 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
     }
 
     swiftLoweringInfo.ReSizeThrows(newArgCount);
+    m_swiftEmptySlots.ReSizeThrows(swiftEmptyStructCount);
     int loweringIndex = 0;
 
     // Build new signature with lowered structs and store lowering info
@@ -3240,6 +3280,20 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
                 CORINFO_SWIFT_LOWERING lowering = {};
                 pArgMT->GetNativeSwiftPhysicalLowering(&lowering, false);
+
+                if (!lowering.byReference && lowering.numLoweredElements == 0)
+                {
+                    // Zero-sized struct: no physical representation in the
+                    // Swift signature. Drop it from the rewritten signature
+                    // and record its interpreter stack slot to skip at this
+                    // position.
+                    m_swiftEmptySlots[m_swiftEmptySlotCount++] = {
+                        loweringIndex,
+                        originalArgIndex,
+                        (uint16_t)ALIGN_UP(pArgMT->GetNumInstanceFieldBytes(), INTERP_STACK_SLOT_SIZE)
+                    };
+                    continue;
+                }
 
                 if (!lowering.byReference && lowering.numLoweredElements > 0)
                 {

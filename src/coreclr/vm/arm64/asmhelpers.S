@@ -2061,6 +2061,17 @@ LEAF_ENTRY InjectInterpStackAlign
     EPILOG_BRANCH_REG x11
 LEAF_END InjectInterpStackAlign
 
+// Skip interpreter stack bytes without touching any argument register. The
+// byte count follows in the routine stream. Used for zero-sized Swift
+// struct arguments, which have interpreter stack slots but no physical
+// representation in the Swift signature.
+LEAF_ENTRY Skip_Interp_Slots
+    ldr x11, [x10], #8
+    add x9, x9, x11
+    ldr x11, [x10], #8
+    EPILOG_BRANCH_REG x11
+LEAF_END Skip_Interp_Slots
+
 // Copy arguments from the interpreter stack to the processor stack
 // The CPU stack slots are aligned to pointer size.
 LEAF_ENTRY Load_Stack
