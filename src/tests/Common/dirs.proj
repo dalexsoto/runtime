@@ -11,6 +11,7 @@
       <DisabledProjects Include="$(TestRoot)Common\**\*.*proj" />
       <DisabledProjects Include="$(TestRoot)FunctionalTests\**\*.csproj" /> <!-- They need to be isolated from the existing setup -->
       <DisabledProjects Include="$(TestRoot)GC\Performance\Framework\GCPerfTestFramework.csproj" />
+      <DisabledProjects Include="$(TestRoot)Interop\Swift\StressGenerator\**\*.csproj" /> <!-- test generator -->
       <DisabledProjects Include="$(TestRoot)Loader\classloader\StaticVirtualMethods\**\generatetest.csproj" /> <!-- test generators -->
       <DisabledProjects Include="$(TestRoot)Performance\Scenario\JitBench\unofficial_dotnet\JitBench.csproj" /> <!-- no official build support for SDK-style netcoreapp2.0 projects -->
       <DisabledProjects Include="$(TestRoot)TestWrappers*\**\*.csproj" />
