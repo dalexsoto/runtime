@@ -53,8 +53,13 @@ It does not cover:
 - SIMD vector types (explicitly unspecified; see "SIMD status").
 
 The lowering algorithm itself is target-independent given an 8-byte pointer
-size. The in-scope execution target is 64-bit (ARM64 primary; the historical
-AMD64 path uses the same algorithm).
+size, for all currently specified element kinds. The in-scope execution
+target is 64-bit (ARM64 primary; the historical AMD64 path uses the same
+algorithm). Caution: Swift SIMD lowering (currently unspecified here) is
+empirically NOT target-independent — `SIMD2<Float>` lowers to one 8-byte
+vector on ARM64 but scalarizes to two floats on x86_64 (probe cluster F) —
+so a future SIMD revision of this specification must take the target
+architecture as an input.
 
 ## Relationship to Swift's algorithm
 
@@ -108,7 +113,8 @@ struct CORINFO_SWIFT_LOWERING
   other fields are then meaningless and must not be read.
 - Otherwise `numLoweredElements` is 0–4 and each element is one of
   `CORINFO_TYPE_FLOAT`, `CORINFO_TYPE_DOUBLE`, `CORINFO_TYPE_LONG`,
-  `CORINFO_TYPE_INT`, `CORINFO_TYPE_SHORT`, `CORINFO_TYPE_BYTE`.
+  `CORINFO_TYPE_INT`, `CORINFO_TYPE_SHORT`, `CORINFO_TYPE_BYTE`, or (ARM64
+  only) `CORINFO_TYPE_VECTOR64`/`CORINFO_TYPE_VECTOR128`.
 - Integer element signedness is not significant; only the size is.
 - `offsets[i]` is the byte offset of element `i` within the managed value.
 - `numLoweredElements == 0` with `byReference == false` is valid and means the
@@ -342,16 +348,52 @@ assigns consecutive FP registers. The coincidence with C ABI HFA treatment
 for small aggregates is not relied upon; do not route Swift values through
 the HFA classifier.
 
-### SIMD status
+### Vector (SIMD) lowering — ARM64
 
-Lowering of `Vector64/128/256/512<T>`, `Vector<T>`, and other 16-byte-aligned
-vector types is deliberately unspecified in this draft. RyuJIT currently
-rejects SIMD types in `CallConvSwift` signatures
-([current-state.md](current-state.md)). The implementations may internally
-produce a lowering for structs containing vector fields (by recursing into
-their integer backing fields); such results are not a contract and must not
-be exposed until a future revision specifies vector lowering against Swift
-SIMD evidence.
+Hardware-vector lowering is implemented and normative on ARM64 (empirical
+basis: Swift 6.4, ABI probe cluster F, asm/IR-verified):
+
+- `System.Runtime.Intrinsics.Vector64<T>`/`Vector128<T>` fields and values
+  (core-library types only) receive `Vector64`/`Vector128` tags with natural
+  alignment 8/16; step 1's misalignment and overlap rules apply unchanged.
+- Interval formation starts a new interval at every 8-aligned `Vector64`
+  byte and 16-aligned `Vector128` byte.
+- Emission produces `CORINFO_TYPE_VECTOR64`/`CORINFO_TYPE_VECTOR128`
+  elements; each vector element counts as exactly ONE element toward the
+  4-element cap (`simd_float4x4`-shaped `{Vector128<float> ×4}` is direct;
+  ×5 is by-reference).
+- The downstream classifier assigns each vector element one V register from
+  the same sequential V-register file used by scalar floating-point values;
+  stack-passed vectors align to their natural alignment (8/16), unlike the
+  native HFA/HVA stack rule.
+- `Vector256<T>` has no direct tag but its two `Vector128<T>` fields lower
+  as two 16-byte vector chunks, matching Swift's pre-splitting of 32-byte
+  vectors. `Vector512<T>`/`Vector<T>` follow field recursion with no
+  vector-mapping guarantee. `System.Numerics.Vector2/3/4` lower as their
+  float fields (scalar `float` tags) and MUST NOT be used to represent
+  Swift SIMD types (`Vector3` is 12 bytes; Swift `SIMD3<Float>` is 16).
+- Swift-side mapping: `SIMDn<T>` of 16 bytes or less = one vector chunk;
+  native `SIMD3<Float>` has size 16 (vec4 storage; lane 3 travels) and maps
+  to `Vector128<float>`; the C-imported 12-byte `simd_float3` decomposes
+  into `<2 x float>` + `float` and has no vector-type mapping.
+- The CoreCLR interpreter does not implement SIMD-register passing and
+  rejects register-passed vector values deterministically
+  (`InvalidProgramException`); by-reference-lowered vector aggregates work
+  in every mode.
+- Non-ARM64 targets: vector types keep field recursion in the lowering and
+  the JIT rejects SIMD types in `CallConvSwift` signatures (Swift's own
+  vector lowering is target-dependent — see "Scope" — and only ARM64 is in
+  scope).
+
+Vector vectors (executable in the ILC lowering tests): `{Vector128<float>}`
+→ `(vector128@0)`; `{Vector64<float>}` → `(vector64@0)`;
+`{Vector128<float>; long}` → `(vector128@0, long@16)`;
+`{Vector128<float> ×4}` → 4 × `vector128`; `{Vector128<float> ×5}` →
+by-reference; `{Vector256<float>}` → `(vector128@0, vector128@16)`.
+Execution coverage: `src/tests/Interop/Swift/SwiftSimdAbi` (arguments,
+returns, structs, at-cap, over-cap, mixed scalar/vector register file, and
+a reverse vector callback) passes under the JIT, the interpreter
+(deterministic rejection asserted), and crossgen2 R2R.
 
 ## Worked differential vectors
 
@@ -391,6 +433,9 @@ probe. Layout is sequential natural unless stated.
 | V25 | `[Explicit] { int@8; int@12; short@18; } Size=20` | 20 | `(long@8, int@16)` | formerly OV2; VM-verified, gap bridged at block boundary |
 | V26 | `[Explicit] { double@0; byte@2; }` | 8 | `(long@0)` | formerly OV3; VM-verified, overlap forces aligned opaque range |
 | V27 | `[Explicit] { nint@0; short@10; } Size=12` | 12 | `(long@0, int@8)` | VM-verified; pointer-as-opaque participates in gap bridging |
+| V28 (DV-8ON4-FP) | `[Pack=4] { int; double; }` | 12 | `(long@0, int@8)` | Swift 6.4 probe: misaligned `double` dissolves into GPR chunks, no FP register |
+| V29 | `[Pack=4] { float; double; }` | 12 | `(float@0, int@4, int@8)` | Swift 6.4 probe: aligned `float` keeps its FP tag while the misaligned `double` dissolves |
+| V30 | `[Pack=4] { double; int; double; }` | 20 | `(double@0, long@8, int@16)` | Swift 6.4 probe, cluster E topic 02 |
 
 Element notation: `long` = `CORINFO_TYPE_LONG`, `int` = `CORINFO_TYPE_INT`,
 `short` = `CORINFO_TYPE_SHORT`, `byte` = `CORINFO_TYPE_BYTE`,
@@ -401,9 +446,8 @@ Element notation: `long` = `CORINFO_TYPE_LONG`, `int` = `CORINFO_TYPE_INT`,
 These vectors are part of the differential corpus but their expected results
 are not yet final. Each is tracked in "Open questions" below.
 
-| ID | Definition (C#) | Size | Current result | Status |
-|---|---|---:|---|---|
-| OV4 | `[Pack=4] { int; double; }` | 12 | `(long@0, int@8)` expected by the OQ-1 rule | OPEN — misaligned `double` variant (DV-8ON4-FP) not yet probed |
+All previously open vectors are closed. New open vectors get an OV number
+and an OQ entry below.
 
 ## Open questions
 
@@ -425,10 +469,10 @@ with the corresponding Clang-imported packed C struct exactly when the
 managed field offsets equal the C offsets; the misalignment rule plus greedy
 opaque chunking then reproduce Swift's sequence.
 
-Remaining follow-up: the misaligned `double` variant (OV4, `DV-8ON4-FP`)
-is expected to behave identically by the same rule but has not been probed;
-`float`/`double` tags require natural alignment, so a misaligned `double`
-must dissolve into opaque chunks the same way.
+The misaligned `double` variant (`DV-8ON4-FP`, vectors V28-V30) was probed
+and confirmed to behave identically: a misaligned `double` dissolves into
+opaque integer chunks carried in general-purpose registers, while aligned
+FP fields in the same struct keep their FP tags and registers.
 
 ### OQ-2 — opaque gap bridging at a block boundary — RESOLVED
 
