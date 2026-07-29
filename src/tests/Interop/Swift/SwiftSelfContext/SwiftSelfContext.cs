@@ -105,4 +105,65 @@ public class SelfContextTests
         float sum = SumFrozenNonEnregisteredStructWithExtraArgs(3f, 4f, new SwiftSelf<FrozenNonEnregisteredStruct>(new FrozenNonEnregisteredStruct { A = 10, B = 20, C = 30, D = 40, E = 50 }));
         Assert.Equal(157f, sum);
     }
+
+    // Reverse P/Invoke: Swift invokes a managed UnmanagedCallersOnly function as a
+    // closure. The closure context register is where Swift passes a by-reference
+    // self value, so the managed function receives it as SwiftSelf<T>.
+
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvSwift)])]
+    [DllImport(SwiftLib, EntryPoint = "$s16SwiftSelfContext38sumFrozenNonEnregisteredStructCallback1fs5Int64VA2E_AEtXE_tF")]
+    public unsafe static extern long SumFrozenNonEnregisteredStructCallback(delegate* unmanaged[Swift]<long, long, SwiftSelf<FrozenNonEnregisteredStruct>, long> func, void* funcContext);
+
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvSwift)])]
+    [DllImport(SwiftLib, EntryPoint = "$s16SwiftSelfContext35sumFrozenEnregisteredStructCallback1fs5Int64VA2E_AeA0efG0VtXE_tF")]
+    public unsafe static extern long SumFrozenEnregisteredStructCallback(delegate* unmanaged[Swift]<long, long, SwiftSelf<FrozenEnregisteredStruct>, long> func, void* funcContext);
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvSwift)])]
+    private static long SumSelfByRefCallback(long a, long b, SwiftSelf<FrozenNonEnregisteredStruct> self)
+    {
+        FrozenNonEnregisteredStruct s = self.Value;
+        return a + b + s.A + s.B + s.C + s.D + s.E;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvSwift)])]
+    private static long SumSelfEnregisteredCallback(long a, long b, SwiftSelf<FrozenEnregisteredStruct> self)
+    {
+        return a + b + self.Value.A + self.Value.B;
+    }
+
+    [Fact]
+    public unsafe static void TestReverseSelfIsFrozenNonEnregisteredStruct()
+    {
+        var s = new FrozenNonEnregisteredStruct { A = 100, B = 200, C = 300, D = 400, E = 500 };
+        long result = SumFrozenNonEnregisteredStructCallback(&SumSelfByRefCallback, &s);
+        Assert.Equal(11 + 22 + 1500, result);
+    }
+
+    [Fact]
+    public unsafe static void TestReverseSelfIsFrozenEnregisteredStruct()
+    {
+        long result = SumFrozenEnregisteredStructCallback(&SumSelfEnregisteredCallback, null);
+        Assert.Equal(1000 + 2000 + 30 + 40, result);
+    }
+
+    // Direct invocation of Swift functions through delegate* unmanaged[Swift]
+    // function pointers (calli) rather than P/Invoke declarations.
+
+    [Fact]
+    public unsafe static void TestDirectCalliWithEnregisteredSelf()
+    {
+        IntPtr lib = NativeLibrary.Load(SwiftLib, System.Reflection.Assembly.GetExecutingAssembly(), null);
+        var fn = (delegate* unmanaged[Swift]<SwiftSelf<FrozenEnregisteredStruct>, long>)NativeLibrary.GetExport(lib, "$s16SwiftSelfContext24FrozenEnregisteredStructV3sums5Int64VyF");
+        long sum = fn(new SwiftSelf<FrozenEnregisteredStruct>(new FrozenEnregisteredStruct { A = 10, B = 20 }));
+        Assert.Equal(30, sum);
+    }
+
+    [Fact]
+    public unsafe static void TestDirectCalliWithByRefSelf()
+    {
+        IntPtr lib = NativeLibrary.Load(SwiftLib, System.Reflection.Assembly.GetExecutingAssembly(), null);
+        var fn = (delegate* unmanaged[Swift]<SwiftSelf<FrozenNonEnregisteredStruct>, long>)NativeLibrary.GetExport(lib, "$s16SwiftSelfContext27FrozenNonEnregisteredStructV3sums5Int64VyF");
+        long sum = fn(new SwiftSelf<FrozenNonEnregisteredStruct>(new FrozenNonEnregisteredStruct { A = 1, B = 2, C = 3, D = 4, E = 5 }));
+        Assert.Equal(15, sum);
+    }
 }

@@ -288,6 +288,7 @@ extern "C" void Load_SwiftError();
 extern "C" void Load_SwiftIndirectResult();
 
 extern "C" void Store_SwiftSelf();
+extern "C" void Store_SwiftSelf_ByRef();
 extern "C" void Store_SwiftError();
 extern "C" void Store_SwiftIndirectResult();
 
@@ -1167,11 +1168,7 @@ PCODE CallStubGenerator::GetSwiftSelfByRefRoutine()
 #if LOG_COMPUTE_CALL_STUB
     LOG2((LF2_INTERPRETER, LL_INFO10000, "GetSwiftSelfByRefRoutine\n"));
 #endif
-    if (!m_interpreterToNative)
-    {
-        COMPlusThrow(kPlatformNotSupportedException, W("SwiftSelf<T> is not supported for reverse PInvoke"));
-    }
-    return (PCODE)Load_SwiftSelf_ByRef;
+    return m_interpreterToNative ? (PCODE)Load_SwiftSelf_ByRef : (PCODE)Store_SwiftSelf_ByRef;
 }
 
 PCODE CallStubGenerator::GetSwiftErrorRoutine()
@@ -2952,9 +2949,12 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
     int swiftSelfCount = 0;
     int swiftErrorCount = 0;
     swiftIndirectResultCount = 0;
+    int argIndex = -1;
+    int numFixedArgs = (int)sig.NumFixedArgs();
     CorElementType argType;
     while ((argType = sig.NextArg()) != ELEMENT_TYPE_END)
     {
+        argIndex++;
         TypeHandle thArgType = sig.GetLastTypeHandleThrowing();
         MethodTable* pArgMT = nullptr;
 
@@ -2992,7 +2992,8 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
             if (pArgMT == CoreLibBinder::GetClass(CLASS__SWIFT_SELF))
             {
-                if (swiftSelfCount > 0)
+                // SwiftSelf must be passed as a struct, and only once.
+                if ((argType != ELEMENT_TYPE_VALUETYPE) || (swiftSelfCount > 0))
                 {
                     COMPlusThrow(kInvalidProgramException);
                 }
@@ -3003,7 +3004,9 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
             if (pArgMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__SWIFT_SELF_T)))
             {
-                if (swiftSelfCount > 0)
+                // SwiftSelf<T> must be passed as a struct, only once, and must be
+                // the last argument in the signature (matching the RyuJIT rules).
+                if ((argType != ELEMENT_TYPE_VALUETYPE) || (swiftSelfCount > 0) || (argIndex != (numFixedArgs - 1)))
                 {
                     COMPlusThrow(kInvalidProgramException);
                 }
@@ -3225,7 +3228,13 @@ bool CallStubGenerator::ProcessSwiftSpecialArgument(MethodTable* pArgMT, int int
         m_currentRoutineType = RoutineType::SwiftSelfByRef;
 
         int structSize = ALIGN_UP(pInnerMT->GetNumInstanceFieldBytes(), INTERP_STACK_SLOT_SIZE);
-        m_swiftSelfByRefSize = structSize;
+        // Forward (Load_SwiftSelf_ByRef): the operand advances the interpreter stack
+        // pointer past the self value, so it is the stack-slot-aligned size.
+        // Reverse (Store_SwiftSelf_ByRef): the operand is the exact number of bytes to
+        // copy out of the Swift-owned self value; the routine must not read past the
+        // value's end and realigns the interpreter stack pointer itself.
+        m_swiftSelfByRefSize =
+            m_interpreterToNative ? structSize : (int)pInnerMT->GetNumInstanceFieldBytes();
         interpreterStackOffset += structSize;
         return true;
     }

@@ -691,6 +691,20 @@ ABIPassingInformation SwiftABIClassifier::Classify(Compiler*    comp,
 
     if (wellKnownParam == WellKnownArg::SwiftSelf)
     {
+        // Distinguish a by-reference-lowered SwiftSelf<T> from a plain SwiftSelf:
+        // both are structs, but only SwiftSelf<T> whose T lowers by reference
+        // receives a pointer to the self value in the Swift self register. A
+        // plain SwiftSelf receives the self register's value itself.
+        if ((type == TYP_STRUCT) && comp->GetSwiftLowering(structLayout->GetClassHandle())->byReference)
+        {
+            // A by-reference-lowered SwiftSelf<T> parameter in a reverse
+            // P/Invoke: the pointer to the self value arrives in the Swift
+            // self register.
+            return ABIPassingInformation::FromSegment(comp, /* passedByRef */ true,
+                                                      ABIPassingSegment::InRegister(REG_SWIFT_SELF, 0,
+                                                                                    TARGET_POINTER_SIZE));
+        }
+
         return ABIPassingInformation::FromSegmentByValue(comp, ABIPassingSegment::InRegister(REG_SWIFT_SELF, 0,
                                                                                              TARGET_POINTER_SIZE));
     }

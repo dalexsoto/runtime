@@ -1296,6 +1296,17 @@ LEAF_ENTRY Store_SwiftSelf
     EPILOG_BRANCH_REG x11
 LEAF_END Store_SwiftSelf
 
+// Copy the SwiftSelf<T> value that the Swift caller passed by reference in the
+// self register onto the interpreter stack. The routine stream operand is the
+// exact size of T; Copy_Ref copies exactly that many bytes and realigns x9.
+LEAF_ENTRY Store_SwiftSelf_ByRef
+    ldr x11, [x10], #8 // exact size of the self value type
+    ldr x15, [fp, #24] // x20 was overwritten by INLINE_GETTHREAD; load original from [fp + 24]
+    Copy_Ref x15
+    ldr x11, [x10], #8
+    EPILOG_BRANCH_REG x11
+LEAF_END Store_SwiftSelf_ByRef
+
 LEAF_ENTRY Store_SwiftIndirectResult
     str x8, [x9], #8
     ldr x11, [x10], #8

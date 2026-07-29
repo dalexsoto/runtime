@@ -650,7 +650,8 @@ void Compiler::lvaInitUserArgs(unsigned* curVarNum, unsigned skipArgs, unsigned 
                 IMPL_LIMITATION("SIMD types are currently unsupported in Swift reverse pinvokes");
             }
 
-            if (lvaInitSpecialSwiftParam(argLst, *curVarNum, strip(corInfoType), typeHnd))
+            if (lvaInitSpecialSwiftParam(argLst, *curVarNum, strip(corInfoType), typeHnd,
+                                         /* isLastUserArg */ i == (numUserArgs - 1)))
             {
                 continue;
             }
@@ -679,13 +680,14 @@ void Compiler::lvaInitUserArgs(unsigned* curVarNum, unsigned skipArgs, unsigned 
 
 #ifdef SWIFT_SUPPORT
 //-----------------------------------------------------------------------------
-// lvaInitSpecialSwiftParam: Initialize SwiftSelf/SwiftError* parameters.
+// lvaInitSpecialSwiftParam: Initialize SwiftSelf/SwiftSelf<T>/SwiftError* parameters.
 //
 // Parameters:
-//   argHnd  - Handle for this parameter in the method's signature
-//   lclNum  - The parameter local
-//   type    - Type of the parameter
-//   typeHnd - Class handle for the type of the parameter
+//   argHnd        - Handle for this parameter in the method's signature
+//   lclNum        - The parameter local
+//   type          - Type of the parameter
+//   typeHnd       - Class handle for the type of the parameter
+//   isLastUserArg - Whether this is the last user parameter in the signature
 //
 // Returns:
 //   true if parameter was initialized
@@ -693,7 +695,8 @@ void Compiler::lvaInitUserArgs(unsigned* curVarNum, unsigned skipArgs, unsigned 
 bool Compiler::lvaInitSpecialSwiftParam(CORINFO_ARG_LIST_HANDLE argHnd,
                                         unsigned                lclNum,
                                         CorInfoType             type,
-                                        CORINFO_CLASS_HANDLE    typeHnd)
+                                        CORINFO_CLASS_HANDLE    typeHnd,
+                                        bool                    isLastUserArg)
 {
     const bool argIsByrefOrPtr = (type == CORINFO_TYPE_BYREF) || (type == CORINFO_TYPE_PTR);
 
@@ -731,6 +734,49 @@ bool Compiler::lvaInitSpecialSwiftParam(CORINFO_ARG_LIST_HANDLE argHnd,
 
         lvaSwiftSelfArg = lclNum;
         return true;
+    }
+
+    if ((strcmp(className, "SwiftSelf`1") == 0) &&
+        (strcmp(namespaceName, "System.Runtime.InteropServices.Swift") == 0))
+    {
+        if (argIsByrefOrPtr)
+        {
+            BADCODE("Expected SwiftSelf<T> struct, got pointer/reference");
+        }
+
+        if (lvaSwiftSelfArg != BAD_VAR_NUM)
+        {
+            BADCODE("Duplicate SwiftSelf parameter");
+        }
+
+        if (!isLastUserArg)
+        {
+            BADCODE("SwiftSelf<T> must be the last argument in the signature");
+        }
+
+        CORINFO_CLASS_HANDLE selfType    = info.compCompHnd->getTypeInstantiationArgument(typeHnd, 0);
+        CorInfoType          selfCorType = info.compCompHnd->asCorInfoType(selfType);
+        if (selfCorType != CORINFO_TYPE_VALUECLASS)
+        {
+            BADCODE("SwiftSelf<T> expects T to be a value class");
+        }
+
+        const CORINFO_SWIFT_LOWERING* lowering = GetSwiftLowering(selfType);
+        if (lowering->byReference)
+        {
+            // The pointer to the self value arrives in the Swift self register.
+            JITDUMP("Parameter V%02u is a by-reference-lowered SwiftSelf<T>; passed in the Swift self register\n",
+                    lclNum);
+            lvaSwiftSelfArg = lclNum;
+            return true;
+        }
+
+        // A directly-lowered SwiftSelf<T> in the last position is physically
+        // identical to a trailing ordinary struct parameter, so let normal
+        // Swift struct lowering handle it.
+        JITDUMP("Parameter V%02u is a directly-lowered SwiftSelf<T>; lowered as an ordinary struct parameter\n",
+                lclNum);
+        return false;
     }
 
     if ((strcmp(className, "SwiftIndirectResult") == 0) &&

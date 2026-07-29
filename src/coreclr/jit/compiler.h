@@ -4718,7 +4718,7 @@ public:
 
     void lvaClassifyParameterABI();
 
-    bool lvaInitSpecialSwiftParam(CORINFO_ARG_LIST_HANDLE argHnd, unsigned lclNum, CorInfoType type, CORINFO_CLASS_HANDLE typeHnd);
+    bool lvaInitSpecialSwiftParam(CORINFO_ARG_LIST_HANDLE argHnd, unsigned lclNum, CorInfoType type, CORINFO_CLASS_HANDLE typeHnd, bool isLastUserArg);
     bool lvaHasAnySwiftStackParamToReassemble();
 
     var_types lvaGetActualType(unsigned lclNum);
