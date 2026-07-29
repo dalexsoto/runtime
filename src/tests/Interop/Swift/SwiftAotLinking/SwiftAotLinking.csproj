@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Needed for CLRTestTargetUnsupported, CMakeProjectReference -->
+    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildProjectName).cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(TestLibraryProjectPath)" />
+    <CMakeProjectReference Include="CMakeLists.txt" />
+  </ItemGroup>
+  <!-- NativeAOT: eager binding for the dylib, true static linking for the
+       archive, and the system Swift runtime bound through its SDK TBD. -->
+  <ItemGroup Condition="'$(TestBuildMode)' == 'nativeaot'">
+    <DirectPInvoke Include="libSwiftAotLinking.dylib" />
+    <NativeLibrary Include="$(OutputPath)libSwiftAotLinking.dylib" />
+    <DirectPInvoke Include="SwiftAotStatic" />
+    <NativeLibrary Include="$(OutputPath)libSwiftAotStatic.a" />
+    <DirectPInvoke Include="libswiftCore" />
+    <NativeLibrary Include="$(OutputPath)libswiftCore.tbd" />
+  </ItemGroup>
+</Project>
