@@ -649,13 +649,15 @@ The validation call and everything it reaches are trim/AOT rooted.
 1. **Manifest schema version.** The binding's schema version is one the
    support library supports.
 2. **Implementation profile.** Every string in `RequiredProfiles` is reported
-   by the runtime through an allowlisted implementation-profile query —
-   proposal: `RuntimeFeature.IsSupported("SwiftInterop.…")`, where the
-   feature strings are reported only by CoreCLR JIT/R2R, the CoreCLR
+   by the runtime through the implementation-profile query
+   `RuntimeFeature.IsSupported("SwiftInterop.…")` (implemented; constants
+   `RuntimeFeature.SwiftInteropSync1` through `SwiftInteropAsyncThunk1`).
+   The feature strings are reported only by CoreCLR JIT/R2R, the CoreCLR
    interpreter, and NativeAOT builds that implement the full profile for the
    executing mode. The strings are never derived from marker-type presence,
    `Type.GetType` probing, or architecture checks. Runtimes with partial
-   `CallConvSwift` support (including Mono) report none of them.
+   `CallConvSwift` support (including Mono) report none of them, and the
+   reserved `SwiftInterop.AsyncDirect1` string is reported by no runtime.
 3. **Target allowlist.** The binding's RID and the current execution mode form
    an allowlisted cell of the first-release matrix (validation.md
    "Execution-mode matrix").

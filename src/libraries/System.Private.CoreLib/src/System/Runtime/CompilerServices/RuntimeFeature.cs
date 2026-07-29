@@ -49,6 +49,51 @@ namespace System.Runtime.CompilerServices
         /// </summary>
         public const string NumericIntPtr = nameof(NumericIntPtr);
 
+        // Swift interop capability profiles. Each string names a versioned,
+        // immutable capability contract (docs/design/interop/swift/abi-model.md,
+        // "Named ABI profiles"); a runtime reports a profile only when it
+        // implements the profile's runtime obligations for the executing mode.
+        // Marker-type presence never implies a profile, and runtimes with
+        // partial CallConvSwift support report none of them. Consumers compare
+        // exact strings by set containment; there is no ordering or wildcard
+        // semantics. The reserved SwiftInterop.AsyncDirect1 profile is
+        // deliberately absent: it must not be reported by any runtime before
+        // its contract is specified and approved.
+
+        /// <summary>
+        /// Indicates that this runtime implements the synchronous Swift calling-convention
+        /// profile: <c>CallConvSwift</c> calls and callbacks including the self, error, and
+        /// indirect-result registers and frozen-struct physical lowering.
+        /// </summary>
+        public const string SwiftInteropSync1 = "SwiftInterop.Sync1";
+
+        /// <summary>
+        /// Indicates that this runtime implements the Swift dynamic value and metadata
+        /// ownership profile (metadata accessor invocation and value-witness operations
+        /// through <see cref="SwiftInteropSync1"/> calls).
+        /// </summary>
+        public const string SwiftInteropValues1 = "SwiftInterop.Values1";
+
+        /// <summary>
+        /// Indicates that this runtime implements the Swift generics profile: generic
+        /// metadata and witness-table trailing arguments passed as ordinary arguments.
+        /// </summary>
+        public const string SwiftInteropGenerics1 = "SwiftInterop.Generics1";
+
+        /// <summary>
+        /// Indicates that this runtime implements the Swift reverse-interop profile:
+        /// rooted <see cref="System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute"/>
+        /// reverse entry points suitable for generated closure boxes and protocol proxies.
+        /// </summary>
+        public const string SwiftInteropProxies1 = "SwiftInterop.Proxies1";
+
+        /// <summary>
+        /// Indicates that this runtime implements the generated Swift async-thunk profile:
+        /// <see cref="SwiftInteropSync1"/> calls plus ordinary C callbacks; no direct
+        /// Swift async convention is required or implied.
+        /// </summary>
+        public const string SwiftInteropAsyncThunk1 = "SwiftInterop.AsyncThunk1";
+
         /// <summary>
         /// Checks whether a certain feature is supported by the Runtime.
         /// </summary>
@@ -65,12 +110,31 @@ namespace System.Runtime.CompilerServices
                 VirtualStaticsInInterfaces or
                 NumericIntPtr => true,
 
+                SwiftInteropSync1 or
+                SwiftInteropValues1 or
+                SwiftInteropGenerics1 or
+                SwiftInteropProxies1 or
+                SwiftInteropAsyncThunk1 => IsSwiftInteropSupported,
+
                 nameof(IsDynamicCodeSupported) => IsDynamicCodeSupported,
                 nameof(IsDynamicCodeCompiled) => IsDynamicCodeCompiled,
                 nameof(IsMultithreadingSupported) => IsMultithreadingSupported,
                 _ => false,
             };
         }
+
+        /// <summary>
+        /// Whether this runtime build implements the Swift interop capability
+        /// profiles. The first-release profile scope is CoreCLR-family runtimes
+        /// (JIT, R2R, interpreter, and NativeAOT) on Apple ARM64 targets; Mono
+        /// never reports the profiles.
+        /// </summary>
+        internal static bool IsSwiftInteropSupported =>
+#if (CORECLR || NATIVEAOT) && TARGET_APPLE && TARGET_ARM64
+            true;
+#else
+            false;
+#endif
 
         /// <summary>
         /// Gets a value that indicates whether the runtime supports multithreading, including
