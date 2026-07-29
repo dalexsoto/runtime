@@ -509,6 +509,13 @@ namespace Internal.TypeSystem
 
         protected ComputedInstanceFieldLayout ComputeCStructFieldLayout(MetadataType type, int numInstanceFields)
         {
+            if (type.IsEnum)
+            {
+                // Validation parity with the CoreCLR VM: enums may not use
+                // extended layout.
+                ThrowHelper.ThrowTypeLoadException(ExceptionStringID.ClassLoadBadFormat, type);
+            }
+
             if (type.ContainsGCPointers || type.IsByRefLike || !type.IsValueType)
             {
                 // CStruct layout algorithm does not support GC pointers.
@@ -598,6 +605,13 @@ namespace Internal.TypeSystem
 
         protected ComputedInstanceFieldLayout ComputeCUnionFieldLayout(MetadataType type, int numInstanceFields)
         {
+            if (type.IsEnum)
+            {
+                // Validation parity with the CoreCLR VM: enums may not use
+                // extended layout.
+                ThrowHelper.ThrowTypeLoadException(ExceptionStringID.ClassLoadBadFormat, type);
+            }
+
             if (type.ContainsGCPointers || type.IsByRefLike || !type.IsValueType)
             {
                 // CUnion layout algorithm does not support GC pointers.
