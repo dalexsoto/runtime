@@ -2122,6 +2122,13 @@ void Compiler::impPopArgsForUnmanagedCall(GenTreeCall* call, CORINFO_SIG_INFO* s
         impPopArgsForSwiftCall(call, sig, swiftErrorNode);
         return;
     }
+#else
+    if (call->unmgdCallConv == CorInfoCallConvExtension::Swift)
+    {
+        // Fail closed instead of silently compiling the call with the
+        // default native calling convention.
+        IMPL_LIMITATION("Swift calling convention is not supported on this platform");
+    }
 #endif
 
     /* Since we push the arguments in reverse order (i.e. right -> left)

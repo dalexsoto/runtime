@@ -346,6 +346,15 @@ void Compiler::lvaInitTypeRef()
 /*****************************************************************************/
 void Compiler::lvaInitArgs(bool hasRetBuffArg)
 {
+#ifndef SWIFT_SUPPORT
+    if (info.compCallConv == CorInfoCallConvExtension::Swift)
+    {
+        // Fail closed instead of silently compiling the method with the
+        // default native calling convention.
+        IMPL_LIMITATION("Swift calling convention is not supported on this platform");
+    }
+#endif
+
 #if defined(TARGET_ARM) && defined(PROFILING_SUPPORTED)
     // Prespill all argument regs on to stack in case of Arm when under profiler.
     // We do this as the arm32 CORINFO_HELP_FCN_ENTER helper does not preserve
