@@ -118,6 +118,7 @@ namespace CallConv
     //   false - Not specified or invalid (more than one calling convention specified)
     //-------------------------------------------------------------------------
     bool TryGetCallingConventionFromUnmanagedCallersOnly(_In_ MethodDesc* pMD, _Out_ CorInfoCallConvExtension* callConv);
+    bool TryGetCallingConventionFromUnmanagedCallersOnlyNoValidation(_In_ MethodDesc* pMD, _Out_ CorInfoCallConvExtension* callConv);
 }
 
 #endif // __CALLCONVBUILDER_H__

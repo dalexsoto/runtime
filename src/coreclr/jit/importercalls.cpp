@@ -2122,6 +2122,13 @@ void Compiler::impPopArgsForUnmanagedCall(GenTreeCall* call, CORINFO_SIG_INFO* s
         impPopArgsForSwiftCall(call, sig, swiftErrorNode);
         return;
     }
+#else
+    if (call->unmgdCallConv == CorInfoCallConvExtension::Swift)
+    {
+        // Fail closed instead of silently compiling the call with the
+        // default native calling convention.
+        IMPL_LIMITATION("Swift calling convention is not supported on this platform");
+    }
 #endif
 
     /* Since we push the arguments in reverse order (i.e. right -> left)
@@ -2261,6 +2268,35 @@ const CORINFO_SWIFT_LOWERING* Compiler::GetSwiftLowering(CORINFO_CLASS_HANDLE hC
 }
 
 //------------------------------------------------------------------------
+// impIsSwiftSupportedVectorClass: Check whether a class handle is one of the
+// SIMD types with a specified Swift lowering (Vector64<T>/Vector128<T>,
+// ARM64 only). All other SIMD types are rejected in CallConvSwift
+// signatures; see docs/design/interop/swift/lowering.md "SIMD status".
+//
+// Arguments:
+//    clsHnd - Class handle of the SIMD-typed value
+//
+// Returns:
+//    true if the type has a specified Swift lowering
+//
+bool Compiler::impIsSwiftSupportedVectorClass(CORINFO_CLASS_HANDLE clsHnd)
+{
+#ifdef TARGET_ARM64
+    if ((clsHnd == NO_CLASS_HANDLE) || !info.compCompHnd->isIntrinsicType(clsHnd))
+    {
+        return false;
+    }
+
+    const char* namespaceName;
+    const char* className = info.compCompHnd->getClassNameFromMetadata(clsHnd, &namespaceName);
+    return (strcmp(namespaceName, "System.Runtime.Intrinsics") == 0) &&
+           ((strcmp(className, "Vector64`1") == 0) || (strcmp(className, "Vector128`1") == 0));
+#else
+    return false;
+#endif
+}
+
+//------------------------------------------------------------------------
 // impPopArgsForSwiftCall: Pop arguments from IL stack to a Swift pinvoke node.
 //
 // Arguments:
@@ -2313,12 +2349,12 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
                 // For error handling purposes, we expect a pointer/reference to a SwiftError to be passed
                 if (!argIsByrefOrPtr)
                 {
-                    BADCODE("Expected SwiftError pointer/reference, got struct");
+                    BADCODE3("Expected SwiftError pointer/reference, got struct", " at argument %d", argIndex);
                 }
 
                 if (swiftErrorIndex != UINT_MAX)
                 {
-                    BADCODE("Duplicate SwiftError* parameter");
+                    BADCODE3("Duplicate SwiftError* parameter", " at argument %d", argIndex);
                 }
 
                 swiftErrorIndex = argIndex;
@@ -2332,12 +2368,12 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
                 // We expect a SwiftSelf struct to be passed, not a pointer/reference
                 if (argIsByrefOrPtr)
                 {
-                    BADCODE("Expected SwiftSelf struct, got pointer/reference");
+                    BADCODE3("Expected SwiftSelf struct, got pointer/reference", " at argument %d", argIndex);
                 }
 
                 if (swiftSelfIndex != UINT_MAX)
                 {
-                    BADCODE("Duplicate SwiftSelf parameter");
+                    BADCODE3("Duplicate SwiftSelf parameter", " at argument %d", argIndex);
                 }
 
                 swiftSelfIndex = argIndex;
@@ -2349,24 +2385,25 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
                 // We expect a SwiftSelf struct to be passed, not a pointer/reference
                 if (argIsByrefOrPtr)
                 {
-                    BADCODE("Expected SwiftSelf<T> struct, got pointer/reference");
+                    BADCODE3("Expected SwiftSelf<T> struct, got pointer/reference", " at argument %d", argIndex);
                 }
 
                 if (swiftSelfIndex != UINT_MAX)
                 {
-                    BADCODE("Duplicate SwiftSelf parameter");
+                    BADCODE3("Duplicate SwiftSelf parameter", " at argument %d", argIndex);
                 }
 
                 if (argIndex != (sig->numArgs - 1))
                 {
-                    BADCODE("SwiftSelf<T> must be the last argument in the signature");
+                    BADCODE3("SwiftSelf<T> must be the last argument in the signature", "; found at argument %d",
+                             argIndex);
                 }
 
                 selfType                = info.compCompHnd->getTypeInstantiationArgument(argClass, 0);
                 CorInfoType selfCorType = info.compCompHnd->asCorInfoType(selfType);
                 if (selfCorType != CORINFO_TYPE_VALUECLASS)
                 {
-                    BADCODE("SwiftSelf<T> expects T to be a value class");
+                    BADCODE3("SwiftSelf<T> expects T to be a value class", " at argument %d", argIndex);
                 }
 
                 swiftSelfIndex = argIndex;
@@ -2376,17 +2413,19 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
             {
                 if (argIsByrefOrPtr)
                 {
-                    BADCODE("Expected SwiftIndirectResult struct, got pointer/reference");
+                    BADCODE3("Expected SwiftIndirectResult struct, got pointer/reference", " at argument %d",
+                             argIndex);
                 }
 
                 if (sig->retType != CORINFO_TYPE_VOID)
                 {
-                    BADCODE("Functions with SwiftIndirectResult arguments must return void");
+                    BADCODE3("Functions with SwiftIndirectResult arguments must return void",
+                             "; found at argument %d", argIndex);
                 }
 
                 if (swiftIndirectResultIndex != UINT_MAX)
                 {
-                    BADCODE("Duplicate SwiftIndirectResult argument");
+                    BADCODE3("Duplicate SwiftIndirectResult argument", " at argument %d", argIndex);
                 }
 
                 swiftIndirectResultIndex = argIndex;
@@ -2442,7 +2481,16 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
 
         if (varTypeIsSIMD(arg->GetSignatureType()))
         {
-            IMPL_LIMITATION("SIMD types are currently unsupported in Swift calls");
+            if (!impIsSwiftSupportedVectorClass(arg->GetSignatureClassHandle()))
+            {
+                IMPL_LIMITATION("SIMD types other than Vector64/Vector128 are unsupported in Swift calls");
+            }
+
+            // A hardware-vector argument is already exactly its single
+            // lowered element (one SIMD register); leave the argument as is.
+            JITDUMP("  Argument %u is a hardware-vector value; no expansion needed\n", argIndex);
+            arg = arg->GetNext();
+            continue;
         }
 
         JITDUMP("  Argument %u is a struct [%06u]\n", argIndex, dspTreeID(arg->GetNode()));
@@ -2525,6 +2573,26 @@ void Compiler::impPopArgsForSwiftCall(GenTreeCall* call, CORINFO_SIG_INFO* sig, 
                     // address exposure instead.
                     unsigned sizeToRead = min(structVal->GetLayout(this)->GetSize() - offset, genTypeSize(loweredType));
                     assert(sizeToRead > 0);
+
+                    if (varTypeIsSIMD(loweredType))
+                    {
+                        // A vector element always covers whole vector fields;
+                        // read it directly and pass it with the canonical
+                        // vector class layout.
+                        assert(sizeToRead == genTypeSize(loweredType));
+                        loweredNode =
+                            gtNewLclFldNode(structVal->GetLclNum(), loweredType, structVal->GetLclOffs() + offset);
+
+                        CorInfoClassId       vectorClassId = (loweredType == TYP_SIMD8) ? CLASSID_VECTOR64_T : CLASSID_VECTOR128_T;
+                        CORINFO_CLASS_HANDLE vectorClsHnd  = info.compCompHnd->getBuiltinClass(vectorClassId);
+                        NewCallArg           vectorArg = NewCallArg::Struct(loweredNode, loweredType, typGetObjLayout(vectorClsHnd));
+
+                        JITDUMP("    Adding expanded vector argument [%06u]\n", dspTreeID(loweredNode));
+                        DISPTREE(loweredNode);
+
+                        insertAfter = call->gtArgs.InsertAfter(this, insertAfter, vectorArg);
+                        continue;
+                    }
 
                     if (sizeToRead == genTypeSize(loweredType))
                     {

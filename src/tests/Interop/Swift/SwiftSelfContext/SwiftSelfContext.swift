@@ -51,3 +51,18 @@ public struct FrozenNonEnregisteredStruct {
         return Float(a + b + c + d + e) + f + g
     }
 }
+
+// Reverse direction: Swift invokes a managed callback as a closure. Calling a
+// Swift closure places the closure context in the self register, which is how
+// a managed UnmanagedCallersOnly function receives a by-reference SwiftSelf<T>
+// (the caller passes a pointer to the self value as the context).
+public func sumFrozenNonEnregisteredStructCallback(f: (Int64, Int64) -> Int64) -> Int64 {
+    return f(11, 22)
+}
+
+// Reverse direction with a directly-lowered self: the struct is passed as a
+// trailing ordinary argument, which is physically identical to Swift passing a
+// directly-lowered self value.
+public func sumFrozenEnregisteredStructCallback(f: (Int64, Int64, FrozenEnregisteredStruct) -> Int64) -> Int64 {
+    return f(1000, 2000, FrozenEnregisteredStruct(a: 30, b: 40))
+}

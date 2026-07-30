@@ -1,0 +1,201 @@
+# trigger: none means no CI on push; the pipeline remains manually runnable
+# for any branch once registered in AzDO.
+trigger: none
+
+schedules:
+- cron: "0 11 * * 2,4,6"
+  displayName: Every Tuesday, Thursday and Saturday at 3:00 AM (UTC-8:00)
+  branches:
+    include:
+    - main
+  always: true
+
+# Explicit ARM64 Apple lanes for the Swift interop profile
+# (docs/design/interop/swift/roadmap.md, Phase 1): the same checked build is
+# exercised under the CoreCLR JIT, the CoreCLR interpreter, and crossgen2 R2R
+# so no execution mode's coverage is inferred from another's. The Swift
+# suites live under src/tests/Interop/Swift and self-assert per-method
+# execution provenance (SwiftR2RProvenance), so a run in the wrong mode
+# fails rather than silently passing.
+
+variables:
+  - template: /eng/pipelines/common/variables.yml
+  - template: /eng/pipelines/helix-platforms.yml
+
+extends:
+  template:  /eng/pipelines/common/templates/pipeline-with-resources.yml
+  parameters:
+    stages:
+    - stage: Build
+      jobs:
+
+      #
+      # Checked build
+      #
+      - template: /eng/pipelines/common/platform-matrix.yml
+        parameters:
+          jobTemplate: /eng/pipelines/common/global-build-job.yml
+          buildConfig: checked
+          platforms:
+          - osx_arm64
+          jobParameters:
+            buildArgs: -s clr+libs -c $(_BuildConfig) -lc Release
+            timeoutInMinutes: 120
+            postBuildSteps:
+              - template: /eng/pipelines/coreclr/templates/build-native-test-assets-step.yml
+              - template: /eng/pipelines/common/upload-artifact-step.yml
+                parameters:
+                  rootFolder: $(Build.SourcesDirectory)/artifacts/bin
+                  includeRootFolder: false
+                  archiveType: $(archiveType)
+                  archiveExtension: $(archiveExtension)
+                  tarCompression: $(tarCompression)
+                  artifactName: BuildArtifacts_$(osGroup)$(osSubgroup)_$(archType)_$(_BuildConfig)
+                  displayName: Build Assets
+            extraVariablesTemplates:
+              - template: /eng/pipelines/common/templates/runtimes/native-test-assets-variables.yml
+                parameters:
+                  testGroup: swift-interop
+
+      #
+      # Checked test build
+      #
+      - template: /eng/pipelines/common/platform-matrix.yml
+        parameters:
+          jobTemplate: /eng/pipelines/common/templates/runtimes/build-test-job.yml
+          buildConfig: checked
+          platforms:
+          - CoreClrTestBuildHost # Either osx_x64 or linux_x64
+          testGroup: swift-interop
+
+      #
+      # CoreCLR JIT run
+      #
+      - template: /eng/pipelines/common/platform-matrix.yml
+        parameters:
+          jobTemplate: /eng/pipelines/common/templates/runtimes/run-test-job.yml
+          buildConfig: checked
+          platforms:
+          - osx_arm64
+          helixQueueGroup: ci
+          helixQueuesTemplate: /eng/pipelines/coreclr/templates/helix-queues-setup.yml
+          variables:
+            - name: timeoutPerTestInMinutes
+              value: 20
+            - name: timeoutPerTestCollectionInMinutes
+              value: 180
+          jobParameters:
+            testGroup: swift-interop
+            liveLibrariesBuildConfig: Release
+            unifiedArtifactsName: BuildArtifacts_$(osGroup)$(osSubgroup)_$(archType)_$(_BuildConfig)
+
+      #
+      # CoreCLR interpreter run
+      #
+      - template: /eng/pipelines/common/platform-matrix.yml
+        parameters:
+          jobTemplate: /eng/pipelines/common/templates/runtimes/run-test-job.yml
+          buildConfig: checked
+          platforms:
+          - osx_arm64
+          helixQueueGroup: ci
+          helixQueuesTemplate: /eng/pipelines/coreclr/templates/helix-queues-setup.yml
+          variables:
+            - name: timeoutPerTestInMinutes
+              value: 20
+            - name: timeoutPerTestCollectionInMinutes
+              value: 180
+          jobParameters:
+            testGroup: swift-interop
+            runInterpreter: true
+            liveLibrariesBuildConfig: Release
+            unifiedArtifactsName: BuildArtifacts_$(osGroup)$(osSubgroup)_$(archType)_$(_BuildConfig)
+
+      #
+      # crossgen2 R2R run
+      #
+      - template: /eng/pipelines/common/platform-matrix.yml
+        parameters:
+          jobTemplate: /eng/pipelines/common/templates/runtimes/run-test-job.yml
+          buildConfig: checked
+          platforms:
+          - osx_arm64
+          helixQueueGroup: ci
+          helixQueuesTemplate: /eng/pipelines/coreclr/templates/helix-queues-setup.yml
+          variables:
+            - name: timeoutPerTestInMinutes
+              value: 20
+            - name: timeoutPerTestCollectionInMinutes
+              value: 180
+          jobParameters:
+            testGroup: swift-interop
+            readyToRun: true
+            liveLibrariesBuildConfig: Release
+            unifiedArtifactsName: BuildArtifacts_$(osGroup)$(osSubgroup)_$(archType)_$(_BuildConfig)
+
+      #
+      # NativeAOT run (tree-scoped to the Swift interop suites): without this
+      # leg the four-execution-mode claims are unreachable in CI.
+      #
+      - template: /eng/pipelines/common/platform-matrix.yml
+        parameters:
+          jobTemplate: /eng/pipelines/common/global-build-job.yml
+          helixQueuesTemplate: /eng/pipelines/coreclr/templates/helix-queues-setup.yml
+          buildConfig: checked
+          platforms:
+          - osx_arm64
+          variables:
+          - name: timeoutPerTestInMinutes
+            value: 30
+          - name: timeoutPerTestCollectionInMinutes
+            value: 180
+          jobParameters:
+            timeoutInMinutes: 240
+            nameSuffix: NativeAOT_Swift
+            buildArgs: -s clr.aot+libs -rc $(_BuildConfig) -lc Release /p:RunAnalyzers=false
+            postBuildSteps:
+              - template: /eng/pipelines/coreclr/nativeaot-post-build-steps.yml
+                parameters:
+                  creator: dotnet-bot
+                  testBuildArgs: 'nativeaot tree Interop/Swift'
+                  liveLibrariesBuildConfig: Release
+            testRunNamePrefixSuffix: NativeAOT_Swift_$(_BuildConfig)
+            extraVariablesTemplates:
+              - template: /eng/pipelines/common/templates/runtimes/test-variables.yml
+                parameters:
+                  testGroup: swift-interop
+                  liveLibrariesBuildConfig: Release
+
+      #
+      # Simulator and Mac Catalyst lanes (backends.md "Simulator and Catalyst
+      # lanes"): Swift interop and extended layout on iossimulator-arm64,
+      # tvossimulator-arm64, and maccatalyst-arm64. These build the CoreCLR
+      # flavor explicitly (the Mono flavor is rejected for these targets on
+      # .NET 11) and run the functional tests under
+      # src/tests/FunctionalTests/{iOS,tvOS}/Simulator/Swift and
+      # src/tests/FunctionalTests/MacCatalyst/Swift. No provisioning is
+      # required: simulators need no signing and Catalyst runs ad-hoc signed.
+      #
+      - template: /eng/pipelines/common/platform-matrix.yml
+        parameters:
+          jobTemplate: /eng/pipelines/common/global-build-job.yml
+          helixQueuesTemplate: /eng/pipelines/libraries/helix-queues-setup.yml
+          buildConfig: Release
+          runtimeFlavor: coreclr
+          platforms:
+          - iossimulator_arm64
+          - tvossimulator_arm64
+          - maccatalyst_arm64
+          jobParameters:
+            testGroup: innerloop
+            nameSuffix: Swift_Interop_Mobile
+            buildArgs: >-
+              -s clr+clr.aot+libs -c $(_BuildConfig) -rf CoreCLR
+              /p:ArchiveTests=true /p:DevTeamProvisioning=adhoc
+              /p:BuildTestsOnHelix=true /p:ContinuousIntegrationBuild=true
+            timeoutInMinutes: 180
+            postBuildSteps:
+              - template: /eng/pipelines/libraries/helix.yml
+                parameters:
+                  creator: dotnet-bot
+                  testRunNamePrefixSuffix: SwiftInteropMobile_$(_BuildConfig)

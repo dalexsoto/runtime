@@ -70,7 +70,13 @@ namespace System.Runtime.CompilerServices.Tests
                 if (!field.IsLiteral)
                     continue;
 
-                yield return new object[] { field.Name };
+                // The Swift interop capability profiles are platform-conditional;
+                // they are covered by SwiftInteropProfiles below.
+                string value = (string)field.GetRawConstantValue();
+                if (value.StartsWith("SwiftInterop.", StringComparison.Ordinal))
+                    continue;
+
+                yield return new object[] { value };
             }
         }
 
@@ -79,6 +85,26 @@ namespace System.Runtime.CompilerServices.Tests
         public static void StaticDataMatchesDynamicProbing(string probedValue)
         {
             Assert.True(RuntimeFeature.IsSupported(probedValue));
+        }
+
+        [Fact]
+        public static void SwiftInteropProfiles()
+        {
+            // The profiles are reported by CoreCLR-family runtimes on Apple
+            // ARM64 targets and by no one else; Mono never reports them.
+            bool expected = PlatformDetection.IsApplePlatform
+                && PlatformDetection.IsArm64Process
+                && !PlatformDetection.IsMonoRuntime;
+
+            Assert.Equal(expected, RuntimeFeature.IsSupported(RuntimeFeature.SwiftInteropSync1));
+            Assert.Equal(expected, RuntimeFeature.IsSupported(RuntimeFeature.SwiftInteropValues1));
+            Assert.Equal(expected, RuntimeFeature.IsSupported(RuntimeFeature.SwiftInteropGenerics1));
+            Assert.Equal(expected, RuntimeFeature.IsSupported(RuntimeFeature.SwiftInteropProxies1));
+            Assert.Equal(expected, RuntimeFeature.IsSupported(RuntimeFeature.SwiftInteropAsyncThunk1));
+
+            // SwiftInterop.AsyncDirect1 is reserved: no constant exists for it
+            // and no runtime may report it before its contract is specified.
+            Assert.False(RuntimeFeature.IsSupported("SwiftInterop.AsyncDirect1"));
         }
 
         [ConditionalTheory(typeof(RemoteExecutor), nameof(RemoteExecutor.IsSupported))]

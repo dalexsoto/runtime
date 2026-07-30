@@ -3052,7 +3052,11 @@ namespace
         Opaque,
         Int64,
         Float,
-        Double
+        Double,
+#ifdef TARGET_ARM64
+        Vector64,
+        Vector128,
+#endif
     };
 
     uint32_t GetAlignment(SwiftPhysicalLoweringTag tag)
@@ -3067,6 +3071,12 @@ namespace
                 return 4;
             case SwiftPhysicalLoweringTag::Double:
                 return 8;
+#ifdef TARGET_ARM64
+            case SwiftPhysicalLoweringTag::Vector64:
+                return 8;
+            case SwiftPhysicalLoweringTag::Vector128:
+                return 16;
+#endif
             default:
                 return 1;
         }
@@ -3192,6 +3202,26 @@ namespace
     void GetNativeSwiftPhysicalLowering(CQuickArray<SwiftPhysicalLoweringTag>& intervals, PTR_MethodTable pMT, uint32_t offset)
     {
         STANDARD_VM_CONTRACT;
+
+#ifdef TARGET_ARM64
+        // Vector64<T>/Vector128<T> lower as single hardware-vector elements
+        // passed in SIMD registers, matching Swift's lowering of SIMD types
+        // (one element per 16-byte-or-smaller vector chunk). Other
+        // SIMD-accelerated types (Vector2/3/4, Vector<T>) keep the recursive
+        // field lowering; they must not be used to represent Swift SIMD
+        // values. See docs/design/interop/swift/lowering.md.
+        if (pMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR64T)))
+        {
+            SetLoweringRange(intervals, offset, 8, SwiftPhysicalLoweringTag::Vector64);
+            return;
+        }
+        if (pMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR128T)))
+        {
+            SetLoweringRange(intervals, offset, 16, SwiftPhysicalLoweringTag::Vector128);
+            return;
+        }
+#endif // TARGET_ARM64
+
         // Use FieldDescs to calculate the Swift intervals
         PTR_FieldDesc pFieldDescList = pMT->GetApproxFieldDescListRaw();
         for (uint32_t i = 0; i < pMT->GetNumIntroducedInstanceFields(); i++)
@@ -3290,6 +3320,11 @@ void MethodTable::GetNativeSwiftPhysicalLowering(CORINFO_SWIFT_LOWERING* pSwiftL
             || (IS_ALIGNED(i, 4) && loweredBytes[i] == SwiftPhysicalLoweringTag::Float)
             // We're starting a new double or int64_t (as we're aligned)
             || (IS_ALIGNED(i, 8) && (loweredBytes[i] == SwiftPhysicalLoweringTag::Double || loweredBytes[i] == SwiftPhysicalLoweringTag::Int64))
+#ifdef TARGET_ARM64
+            // We're starting a new 8-byte or 16-byte vector (as we're aligned)
+            || (IS_ALIGNED(i, 8) && loweredBytes[i] == SwiftPhysicalLoweringTag::Vector64)
+            || (IS_ALIGNED(i, 16) && loweredBytes[i] == SwiftPhysicalLoweringTag::Vector128)
+#endif
             // We've changed interval types
             || loweredBytes[i] != loweredBytes[i - 1];
 
@@ -3364,6 +3399,14 @@ void MethodTable::GetNativeSwiftPhysicalLowering(CORINFO_SWIFT_LOWERING* pSwiftL
             case SwiftPhysicalLoweringTag::Double:
                 loweredTypes[numLoweredTypes++] = CORINFO_TYPE_DOUBLE;
                 break;
+#ifdef TARGET_ARM64
+            case SwiftPhysicalLoweringTag::Vector64:
+                loweredTypes[numLoweredTypes++] = CORINFO_TYPE_VECTOR64;
+                break;
+            case SwiftPhysicalLoweringTag::Vector128:
+                loweredTypes[numLoweredTypes++] = CORINFO_TYPE_VECTOR128;
+                break;
+#endif
             case SwiftPhysicalLoweringTag::Opaque:
             {
                 // We need to split the opaque ranges into integer parameters.

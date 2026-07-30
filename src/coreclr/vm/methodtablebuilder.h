@@ -3014,6 +3014,9 @@ private:
 
     VOID HandleCUnionLayout(
         MethodTable **);
+    VOID HandleSwiftStructLayout(
+        MethodTable** pByValueClassCache
+    );
 
     VOID    CheckForHFA(MethodTable ** pByValueClassCache);
 

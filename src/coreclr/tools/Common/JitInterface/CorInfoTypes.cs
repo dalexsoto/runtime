@@ -549,6 +549,8 @@ namespace Internal.JitInterface
         CLASSID_STRING,
         CLASSID_ARGUMENT_HANDLE,
         CLASSID_RUNTIME_TYPE,
+        CLASSID_VECTOR64_T,
+        CLASSID_VECTOR128_T,
     }
     public enum CorInfoInline
     {
@@ -742,6 +744,12 @@ namespace Internal.JitInterface
         CORINFO_TYPE_BYREF = 0x11,
         CORINFO_TYPE_VALUECLASS = 0x12,
         CORINFO_TYPE_CLASS = 0x13,
+
+        // Only produced as CORINFO_SWIFT_LOWERING elements (8-byte and
+        // 16-byte hardware vectors passed in SIMD registers by the Swift
+        // calling convention); never returned from signature/type queries.
+        CORINFO_TYPE_VECTOR64 = 0x14,
+        CORINFO_TYPE_VECTOR128 = 0x15,
 
         CORINFO_TYPE_COUNT,                         // number of jit types
     }

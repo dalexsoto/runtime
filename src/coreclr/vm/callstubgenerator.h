@@ -200,6 +200,32 @@ class CallStubGenerator
     int m_swiftSelfByRefSize = 0;
     CORINFO_SWIFT_LOWERING m_swiftReturnLowering = {};
 
+    // The SwiftSelf and SwiftIndirectResult arguments and (for reverse P/Invoke)
+    // the SwiftError* argument are excluded from the rewritten signature because
+    // they are not passed in ordinary argument registers. Their interpreter
+    // stack slots still live at the position of the original argument, so the
+    // signature rewrite records where in the rewritten argument order each slot
+    // belongs (-1 when not present). The original argument indices order the
+    // slots relative to each other when they are adjacent.
+    int m_swiftSelfArgIndex = -1;
+    int m_swiftSelfOriginalArgIndex = -1;
+    int m_swiftErrorArgIndex = -1;
+    int m_swiftErrorOriginalArgIndex = -1;
+    int m_swiftIndirectResultArgIndex = -1;
+    int m_swiftIndirectResultOriginalArgIndex = -1;
+
+    // Zero-sized Swift struct arguments have no physical representation, so
+    // they are dropped from the rewritten signature entirely; their
+    // interpreter stack slots are skipped at the original argument position.
+    struct SwiftEmptyStructSlot {
+        int rewrittenArgIndex;
+        int originalArgIndex;
+        uint16_t slotBytes;
+    };
+    CQuickArray<SwiftEmptyStructSlot> m_swiftEmptySlots;
+    unsigned m_swiftEmptySlotCount = 0;
+    unsigned m_swiftEmptySlotCursor = 0;
+
     // Swift routine helpers
     PCODE GetSwiftSelfRoutine();
     PCODE GetSwiftSelfByRefRoutine();

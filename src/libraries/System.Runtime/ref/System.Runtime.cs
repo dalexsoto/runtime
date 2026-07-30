@@ -15118,6 +15118,11 @@ namespace System.Runtime.CompilerServices
         public const string DefaultImplementationsOfInterfaces = "DefaultImplementationsOfInterfaces";
         public const string NumericIntPtr = "NumericIntPtr";
         public const string PortablePdb = "PortablePdb";
+        public const string SwiftInteropAsyncThunk1 = "SwiftInterop.AsyncThunk1";
+        public const string SwiftInteropGenerics1 = "SwiftInterop.Generics1";
+        public const string SwiftInteropProxies1 = "SwiftInterop.Proxies1";
+        public const string SwiftInteropSync1 = "SwiftInterop.Sync1";
+        public const string SwiftInteropValues1 = "SwiftInterop.Values1";
         public const string UnmanagedSignatureCallingConvention = "UnmanagedSignatureCallingConvention";
         public const string VirtualStaticsInInterfaces = "VirtualStaticsInInterfaces";
         [System.Diagnostics.CodeAnalysis.FeatureGuardAttribute(typeof(System.Diagnostics.CodeAnalysis.RequiresDynamicCodeAttribute))]

@@ -10,6 +10,9 @@
 #include "dllimport.h"
 
 extern "C" void InjectInterpStackAlign();
+#if defined(TARGET_APPLE) && defined(TARGET_ARM64)
+extern "C" void Skip_Interp_Slots();
+#endif
 extern "C" void Load_Stack();
 extern "C" void Store_Stack();
 
@@ -288,6 +291,7 @@ extern "C" void Load_SwiftError();
 extern "C" void Load_SwiftIndirectResult();
 
 extern "C" void Store_SwiftSelf();
+extern "C" void Store_SwiftSelf_ByRef();
 extern "C" void Store_SwiftError();
 extern "C" void Store_SwiftIndirectResult();
 
@@ -1167,11 +1171,7 @@ PCODE CallStubGenerator::GetSwiftSelfByRefRoutine()
 #if LOG_COMPUTE_CALL_STUB
     LOG2((LF2_INTERPRETER, LL_INFO10000, "GetSwiftSelfByRefRoutine\n"));
 #endif
-    if (!m_interpreterToNative)
-    {
-        COMPlusThrow(kPlatformNotSupportedException, W("SwiftSelf<T> is not supported for reverse PInvoke"));
-    }
-    return (PCODE)Load_SwiftSelf_ByRef;
+    return m_interpreterToNative ? (PCODE)Load_SwiftSelf_ByRef : (PCODE)Store_SwiftSelf_ByRef;
 }
 
 PCODE CallStubGenerator::GetSwiftErrorRoutine()
@@ -2088,6 +2088,14 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
     m_swiftReturnLowering = {};
     m_swiftSelfByRefSize = 0;
     m_hasSwiftError = false;
+    m_swiftSelfArgIndex = -1;
+    m_swiftSelfOriginalArgIndex = -1;
+    m_swiftErrorArgIndex = -1;
+    m_swiftErrorOriginalArgIndex = -1;
+    m_swiftIndirectResultArgIndex = -1;
+    m_swiftIndirectResultOriginalArgIndex = -1;
+    m_swiftEmptySlotCount = 0;
+    m_swiftEmptySlotCursor = 0;
 
     if (isSwiftCallConv)
     {
@@ -2142,7 +2150,7 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
     }
 
 #if defined(TARGET_APPLE) && defined(TARGET_ARM64)
-    if (swiftIndirectResultCount > 0)
+    if ((swiftIndirectResultCount > 0) && m_isSwiftILStub)
     {
 #if LOG_COMPUTE_CALL_STUB
         LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting Load_SwiftIndirectResult routine\n"));
@@ -2153,8 +2161,37 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
         interpreterStackOffset += INTERP_STACK_SLOT_SIZE;
     }
 
-    // For reverse P/Invoke emit Store_SwiftError before processing regular args because it is excluded from rewritten signature
-    if (m_hasSwiftError && !m_interpreterToNative && !m_isSwiftILStub)
+    // The SwiftSelf and SwiftIndirectResult arguments and (for reverse P/Invoke)
+    // the SwiftError* argument are excluded from the rewritten signature because
+    // they are not passed in ordinary argument registers, but their interpreter
+    // stack slots still live at the position of the original argument. Emit
+    // their routines when the argument walk reaches the recorded position so the
+    // routines read or write the correct interpreter stack slot.
+    auto emitSwiftSelfSlot = [&]()
+    {
+#if LOG_COMPUTE_CALL_STUB
+        LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting SwiftSelf routine\n"));
+#endif
+        TerminateCurrentRoutineIfNotOfNewType(RoutineType::SwiftSelf, pRoutines);
+        pRoutines[m_routineIndex++] = GetSwiftSelfRoutine();
+        m_currentRoutineType = RoutineType::None;
+        interpreterStackOffset += INTERP_STACK_SLOT_SIZE;
+        m_swiftSelfArgIndex = -1;
+    };
+
+    auto emitSwiftIndirectResultSlot = [&]()
+    {
+#if LOG_COMPUTE_CALL_STUB
+        LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting SwiftIndirectResult routine\n"));
+#endif
+        TerminateCurrentRoutineIfNotOfNewType(RoutineType::SwiftIndirectResult, pRoutines);
+        pRoutines[m_routineIndex++] = GetSwiftIndirectResultRoutine();
+        m_currentRoutineType = RoutineType::None;
+        interpreterStackOffset += INTERP_STACK_SLOT_SIZE;
+        m_swiftIndirectResultArgIndex = -1;
+    };
+
+    auto emitSwiftErrorSlot = [&]()
     {
 #if LOG_COMPUTE_CALL_STUB
         LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting Store_SwiftError routine\n"));
@@ -2163,13 +2200,91 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
         pRoutines[m_routineIndex++] = GetSwiftErrorRoutine();
         m_currentRoutineType = RoutineType::None;
         interpreterStackOffset += INTERP_STACK_SLOT_SIZE;
-    }
+        m_swiftErrorArgIndex = -1;
+    };
+
+    auto emitSwiftEmptyStructSlot = [&]()
+    {
+#if LOG_COMPUTE_CALL_STUB
+        LOG2((LF2_INTERPRETER, LL_INFO10000, "Emitting Skip_Interp_Slots routine for a zero-sized struct\n"));
+#endif
+        // A zero-sized struct argument has no registers; skip its
+        // interpreter stack slot(s).
+        uint16_t slotBytes = m_swiftEmptySlots[m_swiftEmptySlotCursor].slotBytes;
+        TerminateCurrentRoutineIfNotOfNewType(RoutineType::None, pRoutines);
+        pRoutines[m_routineIndex++] = (PCODE)Skip_Interp_Slots;
+        pRoutines[m_routineIndex++] = (PCODE)slotBytes;
+        m_currentRoutineType = RoutineType::None;
+        interpreterStackOffset += slotBytes;
+        m_swiftEmptySlotCursor++;
+    };
+
+    auto emitPendingSwiftSpecialSlots = [&](int rewrittenArgIndex)
+    {
+        while (true)
+        {
+            // Find the pending special argument slots that belong before the
+            // current rewritten argument and emit them in original signature
+            // order.
+            int bestOriginalIndex = INT_MAX;
+            int pendingSpecial = 0; // 0 = none, 1 = self, 2 = error, 3 = indirect result, 4 = zero-sized struct
+            if ((m_swiftSelfArgIndex != -1) && (rewrittenArgIndex >= m_swiftSelfArgIndex))
+            {
+                bestOriginalIndex = m_swiftSelfOriginalArgIndex;
+                pendingSpecial = 1;
+            }
+            if ((m_swiftErrorArgIndex != -1) && (rewrittenArgIndex >= m_swiftErrorArgIndex) &&
+                (m_swiftErrorOriginalArgIndex < bestOriginalIndex))
+            {
+                bestOriginalIndex = m_swiftErrorOriginalArgIndex;
+                pendingSpecial = 2;
+            }
+            if ((m_swiftIndirectResultArgIndex != -1) && (rewrittenArgIndex >= m_swiftIndirectResultArgIndex) &&
+                (m_swiftIndirectResultOriginalArgIndex < bestOriginalIndex))
+            {
+                bestOriginalIndex = m_swiftIndirectResultOriginalArgIndex;
+                pendingSpecial = 3;
+            }
+            if ((m_swiftEmptySlotCursor < m_swiftEmptySlotCount) &&
+                (rewrittenArgIndex >= m_swiftEmptySlots[m_swiftEmptySlotCursor].rewrittenArgIndex) &&
+                (m_swiftEmptySlots[m_swiftEmptySlotCursor].originalArgIndex < bestOriginalIndex))
+            {
+                pendingSpecial = 4;
+            }
+
+            switch (pendingSpecial)
+            {
+                case 1:
+                    emitSwiftSelfSlot();
+                    break;
+                case 2:
+                    emitSwiftErrorSlot();
+                    break;
+                case 3:
+                    emitSwiftIndirectResultSlot();
+                    break;
+                case 4:
+                    emitSwiftEmptyStructSlot();
+                    break;
+                default:
+                    return;
+            }
+        }
+    };
 #endif
 
     int ofs;
     while ((ofs = argIt.GetNextOffset()) != TransitionBlock::InvalidOffset)
     {
         LOG2((LF2_INTERPRETER, LL_INFO10000, "Next argument\n"));
+
+#if defined(TARGET_APPLE) && defined(TARGET_ARM64)
+        if (isSwiftCallConv && !m_isSwiftILStub)
+        {
+            emitPendingSwiftSpecialSlots(swiftArgIndex);
+        }
+#endif
+
         ArgLocDesc argLocDesc;
         argIt.GetArgLoc(ofs, &argLocDesc);
 
@@ -2315,6 +2430,15 @@ void CallStubGenerator::ComputeCallStubWorker(bool hasUnmanagedCallConv, CorInfo
             ProcessArgument(&argIt, argLocDesc, pRoutines);
         }
     }
+
+#if defined(TARGET_APPLE) && defined(TARGET_ARM64)
+    // Emit the routines for any special Swift argument whose interpreter stack
+    // slot lies after all of the rewritten arguments.
+    if (isSwiftCallConv && !m_isSwiftILStub)
+    {
+        emitPendingSwiftSpecialSlots(INT_MAX);
+    }
+#endif
 
     // All arguments were processed, but there is likely a pending ranges to store.
     // Process such a range if any.
@@ -2926,6 +3050,16 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
     if (retCorType == ELEMENT_TYPE_VALUETYPE && !thReturnType.IsNull() && !thReturnType.IsTypeDesc())
     {
         MethodTable* pRetMT = thReturnType.AsMethodTable();
+        if (pRetMT->IsValueType() &&
+            (pRetMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR64T)) ||
+             pRetMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR128T))))
+        {
+            // Vector returns use SIMD result registers under the Swift
+            // calling convention (supported by the JIT on ARM64); the
+            // interpreter rejects them deterministically.
+            COMPlusThrow(kInvalidProgramException);
+        }
+
         if (pRetMT->IsValueType() && !pRetMT->IsHFA() &&
             !pRetMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR64T)) &&
             !pRetMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR128T)) &&
@@ -2937,6 +3071,18 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
             pRetMT->GetNativeSwiftPhysicalLowering(&lowering, false);
             if (!lowering.byReference && lowering.numLoweredElements > 0)
             {
+                // The interpreter does not implement SIMD-register argument
+                // and return passing for the Swift calling convention; reject
+                // deterministically instead of misreading vector registers.
+                for (size_t i = 0; i < lowering.numLoweredElements; i++)
+                {
+                    if ((lowering.loweredElements[i] == CORINFO_TYPE_VECTOR64) ||
+                        (lowering.loweredElements[i] == CORINFO_TYPE_VECTOR128))
+                    {
+                        COMPlusThrow(kInvalidProgramException);
+                    }
+                }
+
                 m_hasSwiftReturnLowering = true;
                 m_swiftReturnLowering = lowering;
 #if LOG_COMPUTE_CALL_STUB
@@ -2951,10 +3097,14 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
     int newArgCount = 0;
     int swiftSelfCount = 0;
     int swiftErrorCount = 0;
+    unsigned swiftEmptyStructCount = 0;
     swiftIndirectResultCount = 0;
+    int argIndex = -1;
+    int numFixedArgs = (int)sig.NumFixedArgs();
     CorElementType argType;
     while ((argType = sig.NextArg()) != ELEMENT_TYPE_END)
     {
+        argIndex++;
         TypeHandle thArgType = sig.GetLastTypeHandleThrowing();
         MethodTable* pArgMT = nullptr;
 
@@ -2992,18 +3142,24 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
             if (pArgMT == CoreLibBinder::GetClass(CLASS__SWIFT_SELF))
             {
-                if (swiftSelfCount > 0)
+                // SwiftSelf must be passed as a struct, and only once.
+                if ((argType != ELEMENT_TYPE_VALUETYPE) || (swiftSelfCount > 0))
                 {
                     COMPlusThrow(kInvalidProgramException);
                 }
                 swiftSelfCount++;
-                newArgCount++;
+                // SwiftSelf goes in the Swift self register, not in ordinary
+                // argument registers, so it is excluded from the rewritten
+                // signature (the count is unused for Swift IL stubs, which keep
+                // the original signature).
                 continue;
             }
 
             if (pArgMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__SWIFT_SELF_T)))
             {
-                if (swiftSelfCount > 0)
+                // SwiftSelf<T> must be passed as a struct, only once, and must be
+                // the last argument in the signature (matching the RyuJIT rules).
+                if ((argType != ELEMENT_TYPE_VALUETYPE) || (swiftSelfCount > 0) || (argIndex != (numFixedArgs - 1)))
                 {
                     COMPlusThrow(kInvalidProgramException);
                 }
@@ -3021,8 +3177,10 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
                 swiftErrorCount++;
                 m_hasSwiftError = true;
 
-                // Direct P/Invoke
-                if (m_interpreterToNative || m_isSwiftILStub)
+                // SwiftError* goes in x21, not in ordinary argument registers, so
+                // it is excluded from the rewritten signature. Swift IL stubs keep
+                // the original signature.
+                if (m_isSwiftILStub)
                 {
                     newArgCount++;
                 }
@@ -3047,7 +3205,27 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
                 if (!lowering.byReference && lowering.numLoweredElements > 0)
                 {
+                    // The interpreter does not implement SIMD-register
+                    // argument passing for the Swift calling convention;
+                    // reject deterministically instead of misreading vector
+                    // registers.
+                    for (size_t i = 0; i < lowering.numLoweredElements; i++)
+                    {
+                        if ((lowering.loweredElements[i] == CORINFO_TYPE_VECTOR64) ||
+                            (lowering.loweredElements[i] == CORINFO_TYPE_VECTOR128))
+                        {
+                            COMPlusThrow(kInvalidProgramException);
+                        }
+                    }
+
                     newArgCount += (int)lowering.numLoweredElements;
+                    continue;
+                }
+
+                if (!lowering.byReference && lowering.numLoweredElements == 0)
+                {
+                    // Zero-sized struct: dropped from the physical signature.
+                    swiftEmptyStructCount++;
                     continue;
                 }
             }
@@ -3063,6 +3241,7 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
     }
 
     swiftLoweringInfo.ReSizeThrows(newArgCount);
+    m_swiftEmptySlots.ReSizeThrows(swiftEmptyStructCount);
     int loweringIndex = 0;
 
     // Build new signature with lowered structs and store lowering info
@@ -3075,9 +3254,11 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
     // Process arguments
     sig.Reset();
+    int originalArgIndex = -1;
     while ((argType = sig.NextArg()) != ELEMENT_TYPE_END)
     {
-        if (!m_interpreterToNative && !m_isSwiftILStub && (argType == ELEMENT_TYPE_PTR || argType == ELEMENT_TYPE_BYREF))
+        originalArgIndex++;
+        if (!m_isSwiftILStub && (argType == ELEMENT_TYPE_PTR || argType == ELEMENT_TYPE_BYREF))
         {
             TypeHandle thArgType = sig.GetLastTypeHandleThrowing();
             MethodTable* pArgMT = nullptr;
@@ -3094,7 +3275,11 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
 
             if (pArgMT != nullptr && pArgMT == CoreLibBinder::GetClass(CLASS__SWIFT_ERROR))
             {
-                // SwiftError* goes in x21, not in argument registers
+                // SwiftError* goes in x21, not in argument registers. Record where
+                // its interpreter stack slot belongs in the rewritten argument order
+                // so the call stub reads or writes the slot at the argument's position.
+                m_swiftErrorArgIndex = loweringIndex;
+                m_swiftErrorOriginalArgIndex = originalArgIndex;
                 continue;
             }
         }
@@ -3107,21 +3292,43 @@ void CallStubGenerator::RewriteSignatureForSwiftLowering(MetaSig &sig, SigBuilde
             {
                 if (pArgMT == CoreLibBinder::GetClass(CLASS__SWIFT_INDIRECT_RESULT))
                 {
-                    // SwiftIndirectResult goes in x8, not in argument registers
+                    // SwiftIndirectResult goes in x8, not in argument registers.
+                    // Record where its interpreter stack slot belongs in the
+                    // rewritten argument order so the call stub reads or writes
+                    // the slot at the argument's position.
+                    m_swiftIndirectResultArgIndex = loweringIndex;
+                    m_swiftIndirectResultOriginalArgIndex = originalArgIndex;
                     continue;
                 }
 
                 // Don't lower Swift* types except SwiftSelf<T>
                 if (pArgMT == CoreLibBinder::GetClass(CLASS__SWIFT_SELF))
                 {
-                    SigPointer pArg = sig.GetArgProps();
-                    pArg.ConvertToInternalExactlyOne(sig.GetModule(), sig.GetSigTypeContext(), &swiftSigBuilder);
-                    swiftLoweringInfo[loweringIndex++] = { 0, 0, false, false };
+                    // SwiftSelf goes in the Swift self register, not in ordinary
+                    // argument registers. Record where its interpreter stack slot
+                    // belongs in the rewritten argument order so the call stub
+                    // reads or writes the slot at the argument's position.
+                    m_swiftSelfArgIndex = loweringIndex;
+                    m_swiftSelfOriginalArgIndex = originalArgIndex;
                     continue;
                 }
 
                 CORINFO_SWIFT_LOWERING lowering = {};
                 pArgMT->GetNativeSwiftPhysicalLowering(&lowering, false);
+
+                if (!lowering.byReference && lowering.numLoweredElements == 0)
+                {
+                    // Zero-sized struct: no physical representation in the
+                    // Swift signature. Drop it from the rewritten signature
+                    // and record its interpreter stack slot to skip at this
+                    // position.
+                    m_swiftEmptySlots[m_swiftEmptySlotCount++] = {
+                        loweringIndex,
+                        originalArgIndex,
+                        (uint16_t)ALIGN_UP(pArgMT->GetNumInstanceFieldBytes(), INTERP_STACK_SLOT_SIZE)
+                    };
+                    continue;
+                }
 
                 if (!lowering.byReference && lowering.numLoweredElements > 0)
                 {
@@ -3225,7 +3432,13 @@ bool CallStubGenerator::ProcessSwiftSpecialArgument(MethodTable* pArgMT, int int
         m_currentRoutineType = RoutineType::SwiftSelfByRef;
 
         int structSize = ALIGN_UP(pInnerMT->GetNumInstanceFieldBytes(), INTERP_STACK_SLOT_SIZE);
-        m_swiftSelfByRefSize = structSize;
+        // Forward (Load_SwiftSelf_ByRef): the operand advances the interpreter stack
+        // pointer past the self value, so it is the stack-slot-aligned size.
+        // Reverse (Store_SwiftSelf_ByRef): the operand is the exact number of bytes to
+        // copy out of the Swift-owned self value; the routine must not read past the
+        // value's end and realigns the interpreter stack pointer itself.
+        m_swiftSelfByRefSize =
+            m_interpreterToNative ? structSize : (int)pInnerMT->GetNumInstanceFieldBytes();
         interpreterStackOffset += structSize;
         return true;
     }

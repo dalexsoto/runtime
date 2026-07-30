@@ -36,7 +36,9 @@ public sealed class ExpectedLoweringAttribute : Attribute
         Int8,
         Int16,
         Int32,
-        Int64
+        Int64,
+        Vector64,
+        Vector128
     }
 
     public int[] Offsets { get; set; }

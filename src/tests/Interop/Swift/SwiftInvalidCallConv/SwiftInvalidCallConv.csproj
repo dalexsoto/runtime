@@ -3,6 +3,10 @@
     <!-- Needed for CLRTestTargetUnsupported, CMakeProjectReference -->
     <RequiresProcessIsolation>true</RequiresProcessIsolation>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- ILC correctly fails closed at build time for invalid Swift
+         signatures, so the runtime-exception model of this suite does not
+         apply to NativeAOT. -->
+    <CLRTestTargetUnsupported Condition="'$(TestBuildMode)' == 'nativeaot'">true</CLRTestTargetUnsupported>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildProjectName).cs" />

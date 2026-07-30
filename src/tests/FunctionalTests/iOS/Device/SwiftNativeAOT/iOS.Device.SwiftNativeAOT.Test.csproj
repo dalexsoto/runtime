@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="MonoForceInterpreter">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TestRuntime>true</TestRuntime>
+    <TargetFramework>$(NetCoreAppCurrent)</TargetFramework>
+    <RuntimeIdentifier>$(TargetOS)-$(TargetArchitecture)</RuntimeIdentifier>
+    <TargetOS Condition="'$(TargetOS)' == ''">ios</TargetOS>
+    <IncludesTestRunner>false</IncludesTestRunner>
+    <ExpectedExitCode>42</ExpectedExitCode>
+    <SelfContained>true</SelfContained>
+    <UseConsoleUITemplate>true</UseConsoleUITemplate>
+    <ForceLibraryModeGenerateAppBundle>true</ForceLibraryModeGenerateAppBundle>
+    <NativeLib Condition="'$(NativeLib)' == ''">shared</NativeLib>
+    <BundlesResources Condition="'$(BundlesResources)' == ''">false</BundlesResources>
+    <Optimized Condition="'$(Configuration)' == 'Release'">true</Optimized>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- NativeAOT is the CoreCLR-flavor mobile default; make it explicit. -->
+    <UseNativeAOTRuntime>true</UseNativeAOTRuntime>
+    <DevTeamProvisioning Condition="'$(DevTeamProvisioning)' == ''">23BQZX22Y5</DevTeamProvisioning>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="$(MSBuildThisFileDirectory)ILLink.Descriptors.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ClassLibrary.cs" />
+  </ItemGroup>
+
+  <!-- Swift fixture for the DEVICE triple, bundled; DllImport resolves it. -->
+  <Target Name="BuildSwiftFixture" BeforeTargets="Build">
+    <PropertyGroup>
+      <SwiftFixtureDylib>$(IntermediateOutputPath)libSwiftFixture.dylib</SwiftFixtureDylib>
+    </PropertyGroup>
+    <Exec Command="xcrun --sdk iphoneos --show-sdk-path" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="IosSdkPath" />
+    </Exec>
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <Exec Command="xcrun swiftc -target arm64-apple-ios15.0 -sdk $(IosSdkPath) -Xlinker -rpath -Xlinker /usr/lib/swift -O -emit-library $(MSBuildThisFileDirectory)SwiftFixture.swift -o $(SwiftFixtureDylib) -module-name SwiftFixture -Xlinker -install_name -Xlinker @rpath/libSwiftFixture.dylib" />
+  </Target>
+
+  <Target Name="AddSwiftFixtureToPublish"
+          DependsOnTargets="BuildSwiftFixture"
+          BeforeTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(SwiftFixtureDylib)">
+        <RelativePath>libSwiftFixture.dylib</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+  <!-- ILCompiler wiring for local NativeAOT builds (mirrors LibraryMode). -->
+  <PropertyGroup Condition="'$(UseNativeAOTRuntime)' == 'true'">
+    <ILCompilerTargetsPath Condition="'$(ILCompilerTargetsPath)' == ''">$(CoreClrProjectRoot)nativeaot/BuildIntegration/Microsoft.DotNet.ILCompiler.SingleEntry.targets</ILCompilerTargetsPath>
+    <ILLinkTargetsPath Condition="'$(ILLinkTargetsPath)' == ''">$(ToolsProjectRoot)illink/src/ILLink.Tasks/build/Microsoft.NET.ILLink.targets</ILLinkTargetsPath>
+    <IlcBuildTasksDir>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'artifacts', 'bin', 'coreclr', '$(TargetOS).$(TargetArchitecture).$(CoreCLRConfiguration)', 'ilc-published', 'netstandard'))</IlcBuildTasksDir>
+    <IlcBuildTasksPath>$(IlcBuildTasksDir)ILCompiler.Build.Tasks.dll</IlcBuildTasksPath>
+  </PropertyGroup>
+
+  <Target Name="_PrepareSetupForLocalBuild" BeforeTargets="SetupProperties" Condition="'$(UseNativeAOTRuntime)' == 'true' and $(BuildTestsOn) == 'local'">
+    <PropertyGroup>
+      <IlcToolsPath>$(CoreCLRCrossILCompilerDir)</IlcToolsPath>
+      <IlcSdkPath>$(CoreCLRAotSdkDir)</IlcSdkPath>
+      <IlcFrameworkPath>$(LibrariesAllBinArtifactsPath)</IlcFrameworkPath>
+      <IlcFrameworkNativePath>$(LibrariesAllBinArtifactsPath)</IlcFrameworkNativePath>
+    </PropertyGroup>
+  </Target>
+</Project>

@@ -258,6 +258,10 @@ public:
                                    var_types    type,
                                    ClassLayout* structLayout,
                                    WellKnownArg wellKnownParam);
+
+#ifdef SWIFT_SUPPORT
+    ABIPassingInformation ClassifySwiftVector(Compiler* comp, var_types type);
+#endif
 };
 
 class Arm32Classifier

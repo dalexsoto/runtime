@@ -1296,6 +1296,17 @@ LEAF_ENTRY Store_SwiftSelf
     EPILOG_BRANCH_REG x11
 LEAF_END Store_SwiftSelf
 
+// Copy the SwiftSelf<T> value that the Swift caller passed by reference in the
+// self register onto the interpreter stack. The routine stream operand is the
+// exact size of T; Copy_Ref copies exactly that many bytes and realigns x9.
+LEAF_ENTRY Store_SwiftSelf_ByRef
+    ldr x11, [x10], #8 // exact size of the self value type
+    ldr x15, [fp, #24] // x20 was overwritten by INLINE_GETTHREAD; load original from [fp + 24]
+    Copy_Ref x15
+    ldr x11, [x10], #8
+    EPILOG_BRANCH_REG x11
+LEAF_END Store_SwiftSelf_ByRef
+
 LEAF_ENTRY Store_SwiftIndirectResult
     str x8, [x9], #8
     ldr x11, [x10], #8
@@ -2050,6 +2061,17 @@ LEAF_ENTRY InjectInterpStackAlign
     EPILOG_BRANCH_REG x11
 LEAF_END InjectInterpStackAlign
 
+// Skip interpreter stack bytes without touching any argument register. The
+// byte count follows in the routine stream. Used for zero-sized Swift
+// struct arguments, which have interpreter stack slots but no physical
+// representation in the Swift signature.
+LEAF_ENTRY Skip_Interp_Slots
+    ldr x11, [x10], #8
+    add x9, x9, x11
+    ldr x11, [x10], #8
+    EPILOG_BRANCH_REG x11
+LEAF_END Skip_Interp_Slots
+
 // Copy arguments from the interpreter stack to the processor stack
 // The CPU stack slots are aligned to pointer size.
 LEAF_ENTRY Load_Stack
@@ -2646,7 +2668,11 @@ LEAF_END Load_Q1_Q2_Q3_Q4_Q5_Q6_Q7
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetVoid, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     str x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2665,7 +2691,8 @@ LOCAL_LABEL(CallJittedMethodRetVoid_NoSwiftError):
     ldr x4, [fp, #16]
     str x2, [x4]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetVoid, _TEXT
 
@@ -2675,7 +2702,11 @@ NESTED_END CallJittedMethodRetVoid, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetBuff, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     str x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2695,7 +2726,8 @@ LOCAL_LABEL(CallJittedMethodRetBuff_NoSwiftError):
     ldr x4, [fp, #16]
     str x2, [x4]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetBuff, _TEXT
 
@@ -2705,7 +2737,11 @@ NESTED_END CallJittedMethodRetBuff, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetI1, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2727,7 +2763,8 @@ LOCAL_LABEL(CallJittedMethodRetI1_NoSwiftError):
     ldr x9, [fp, #16]
     str x0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetI1, _TEXT
 
@@ -2737,7 +2774,11 @@ NESTED_END CallJittedMethodRetI1, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetI2, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2759,7 +2800,8 @@ LOCAL_LABEL(CallJittedMethodRetI2_NoSwiftError):
     ldr x9, [fp, #16]
     str x0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetI2, _TEXT
 
@@ -2769,7 +2811,11 @@ NESTED_END CallJittedMethodRetI2, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetI8, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2790,7 +2836,8 @@ LOCAL_LABEL(CallJittedMethodRetI8_NoSwiftError):
     ldr x9, [fp, #16]
     str x0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetI8, _TEXT
 
@@ -2800,7 +2847,11 @@ NESTED_END CallJittedMethodRetI8, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetU1, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2822,7 +2873,8 @@ LOCAL_LABEL(CallJittedMethodRetU1_NoSwiftError):
     ldr x9, [fp, #16]
     str x0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetU1, _TEXT
 
@@ -2832,7 +2884,11 @@ NESTED_END CallJittedMethodRetU1, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetU2, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2854,7 +2910,8 @@ LOCAL_LABEL(CallJittedMethodRetU2_NoSwiftError):
     ldr x9, [fp, #16]
     str x0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetU2, _TEXT
 
@@ -2864,7 +2921,11 @@ NESTED_END CallJittedMethodRetU2, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet2I8, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2885,7 +2946,8 @@ LOCAL_LABEL(CallJittedMethodRet2I8_NoSwiftError):
     ldr x9, [fp, #16]
     stp x0, x1, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet2I8, _TEXT
 
@@ -2895,7 +2957,11 @@ NESTED_END CallJittedMethodRet2I8, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetDouble, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2916,7 +2982,8 @@ LOCAL_LABEL(CallJittedMethodRetDouble_NoSwiftError):
     ldr x9, [fp, #16]
     str d0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetDouble, _TEXT
 
@@ -2926,7 +2993,11 @@ NESTED_END CallJittedMethodRetDouble, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet2Double, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2947,7 +3018,8 @@ LOCAL_LABEL(CallJittedMethodRet2Double_NoSwiftError):
     ldr x9, [fp, #16]
     stp d0, d1, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet2Double, _TEXT
 
@@ -2957,7 +3029,11 @@ NESTED_END CallJittedMethodRet2Double, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet3Double, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -2979,7 +3055,8 @@ LOCAL_LABEL(CallJittedMethodRet3Double_NoSwiftError):
     stp d0, d1, [x9], #16
     str d2, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet3Double, _TEXT
 
@@ -2989,7 +3066,11 @@ NESTED_END CallJittedMethodRet3Double, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet4Double, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3011,7 +3092,8 @@ LOCAL_LABEL(CallJittedMethodRet4Double_NoSwiftError):
     stp d0, d1, [x9], #16
     stp d2, d3, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet4Double, _TEXT
 
@@ -3021,7 +3103,11 @@ NESTED_END CallJittedMethodRet4Double, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetFloat, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3042,7 +3128,8 @@ LOCAL_LABEL(CallJittedMethodRetFloat_NoSwiftError):
     ldr x9, [fp, #16]
     str s0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetFloat, _TEXT
 
@@ -3052,7 +3139,11 @@ NESTED_END CallJittedMethodRetFloat, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet2Float, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3073,7 +3164,8 @@ LOCAL_LABEL(CallJittedMethodRet2Float_NoSwiftError):
     ldr x9, [fp, #16]
     stp s0, s1, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet2Float, _TEXT
 
@@ -3083,7 +3175,11 @@ NESTED_END CallJittedMethodRet2Float, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet3Float, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3105,7 +3201,8 @@ LOCAL_LABEL(CallJittedMethodRet3Float_NoSwiftError):
     stp s0, s1, [x9], #8
     str s2, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet3Float, _TEXT
 
@@ -3115,7 +3212,11 @@ NESTED_END CallJittedMethodRet3Float, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet4Float, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3137,7 +3238,8 @@ LOCAL_LABEL(CallJittedMethodRet4Float_NoSwiftError):
     stp s0, s1, [x9], #8
     stp s2, s3, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet4Float, _TEXT
 
@@ -3147,7 +3249,11 @@ NESTED_END CallJittedMethodRet4Float, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetVector64, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3168,7 +3274,8 @@ LOCAL_LABEL(CallJittedMethodRetVector64_NoSwiftError):
     ldr x9, [fp, #16]
     str d0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetVector64, _TEXT
 
@@ -3178,7 +3285,11 @@ NESTED_END CallJittedMethodRetVector64, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet2Vector64, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3200,7 +3311,8 @@ LOCAL_LABEL(CallJittedMethodRet2Vector64_NoSwiftError):
     str d0, [x9], #8
     str d1, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet2Vector64, _TEXT
 
@@ -3210,7 +3322,11 @@ NESTED_END CallJittedMethodRet2Vector64, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet3Vector64, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3233,7 +3349,8 @@ LOCAL_LABEL(CallJittedMethodRet3Vector64_NoSwiftError):
     str d1, [x9], #8
     str d2, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet3Vector64, _TEXT
 
@@ -3243,7 +3360,11 @@ NESTED_END CallJittedMethodRet3Vector64, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet4Vector64, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3267,7 +3388,8 @@ LOCAL_LABEL(CallJittedMethodRet4Vector64_NoSwiftError):
     str d2, [x9], #8
     str d3, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet4Vector64, _TEXT
 
@@ -3277,7 +3399,11 @@ NESTED_END CallJittedMethodRet4Vector64, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetVector128, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3298,7 +3424,8 @@ LOCAL_LABEL(CallJittedMethodRetVector128_NoSwiftError):
     ldr x9, [fp, #16]
     str q0, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetVector128, _TEXT
 
@@ -3308,7 +3435,11 @@ NESTED_END CallJittedMethodRetVector128, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet2Vector128, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3330,7 +3461,8 @@ LOCAL_LABEL(CallJittedMethodRet2Vector128_NoSwiftError):
     str q0, [x9], #16
     str q1, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet2Vector128, _TEXT
 
@@ -3340,7 +3472,11 @@ NESTED_END CallJittedMethodRet2Vector128, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet3Vector128, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3363,7 +3499,8 @@ LOCAL_LABEL(CallJittedMethodRet3Vector128_NoSwiftError):
     str q1, [x9], #16
     str q2, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet3Vector128, _TEXT
 
@@ -3373,7 +3510,11 @@ NESTED_END CallJittedMethodRet3Vector128, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRet4Vector128, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -48
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    // Swift calls modify x20 and x21 (the Swift self and error registers),
+    // which the C++ caller expects preserved; the error capture below
+    // reads x21 before the restore.
+    PROLOG_SAVE_REG_PAIR x20, x21, 48
     stp x2, x4, [fp, #16]
 #ifdef TARGET_APPLE
     str xzr, [fp, #40]
@@ -3397,7 +3538,8 @@ LOCAL_LABEL(CallJittedMethodRet4Vector128_NoSwiftError):
     str q2, [x9], #16
     str q3, [x9]
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 48
+    EPILOG_RESTORE_REG_PAIR x20, x21, 48
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
     EPILOG_RETURN
 NESTED_END CallJittedMethodRet4Vector128, _TEXT
 
@@ -3409,7 +3551,8 @@ NESTED_END CallJittedMethodRet4Vector128, _TEXT
 // X3 - stack arguments size (properly aligned)
 // X4 - address of continuation return value
 NESTED_ENTRY CallJittedMethodRetSwiftLowered, _TEXT, NoHandler
-    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -64
+    PROLOG_SAVE_REG_PAIR_INDEXED fp, lr, -80
+    PROLOG_SAVE_REG_PAIR x20, x21, 64
     stp x2, x4, [fp, #16]
     str xzr, [fp, #40]
     // Store the return address for the terminator to use
@@ -3436,7 +3579,8 @@ LOCAL_LABEL(CallJittedMethodRetSwiftLowered_NoSwiftError):
     br x11
 LOCAL_LABEL(CallJittedMethodRetSwiftLowered_Epilog):
     EPILOG_STACK_RESTORE
-    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 64
+    EPILOG_RESTORE_REG_PAIR x20, x21, 64
+    EPILOG_RESTORE_REG_PAIR_INDEXED fp, lr, 80
     EPILOG_RETURN
 NESTED_END CallJittedMethodRetSwiftLowered, _TEXT
 

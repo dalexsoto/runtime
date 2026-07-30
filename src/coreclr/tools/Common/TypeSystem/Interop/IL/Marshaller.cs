@@ -238,7 +238,8 @@ namespace Internal.TypeSystem.Interop
             PInvokeFlags flags,
             bool isIn,
             bool isOut,
-            bool isReturn)
+            bool isReturn,
+            bool isSwiftSignature = false)
         {
             bool isAnsi = flags.CharSet switch
             {
@@ -255,7 +256,8 @@ namespace Internal.TypeSystem.Interop
                                                 isReturn,
                                                 isAnsi,
                                                 marshallerType,
-                                                out MarshallerKind elementMarshallerKind);
+                                                out MarshallerKind elementMarshallerKind,
+                                                isSwiftSignature);
 
             TypeSystemContext context = parameterType.Context;
             // Create the marshaller based on MarshallerKind
@@ -388,7 +390,8 @@ namespace Internal.TypeSystem.Interop
             MethodSignature methodSig,
             PInvokeFlags flags,
             ParameterMetadata[] parameterMetadataArray,
-            bool runtimeMarshallingEnabled)
+            bool runtimeMarshallingEnabled,
+            bool isSwiftSignature = false)
         {
             Marshaller[] marshallers = new Marshaller[methodSig.Length + 1];
 
@@ -425,7 +428,8 @@ namespace Internal.TypeSystem.Interop
                                                         flags,
                                                         parameterMetadata.In,
                                                         parameterMetadata.Out,
-                                                        parameterMetadata.Return);
+                                                        parameterMetadata.Return,
+                                                        isSwiftSignature);
                 }
                 else
                 {
@@ -450,16 +454,18 @@ namespace Internal.TypeSystem.Interop
                 targetMethod.Signature,
                 targetMethod.GetPInvokeMethodMetadata().Flags,
                 targetMethod.GetParameterMetadata(),
-                MarshalHelpers.IsRuntimeMarshallingEnabled(((MetadataType)targetMethod.OwningType).Module));
+                MarshalHelpers.IsRuntimeMarshallingEnabled(((MetadataType)targetMethod.OwningType).Module),
+                (targetMethod.GetPInvokeMethodCallingConventions() & UnmanagedCallingConventions.CallingConventionMask) == UnmanagedCallingConventions.Swift);
         }
 
-        public static Marshaller[] GetMarshallersForSignature(MethodSignature methodSig, ParameterMetadata[] paramMetadata, ModuleDesc moduleContext)
+        public static Marshaller[] GetMarshallersForSignature(MethodSignature methodSig, ParameterMetadata[] paramMetadata, ModuleDesc moduleContext, bool isSwiftSignature = false)
         {
             return GetMarshallers(
                 methodSig,
                 new PInvokeFlags(PInvokeAttributes.None),
                 paramMetadata,
-                MarshalHelpers.IsRuntimeMarshallingEnabled(moduleContext));
+                MarshalHelpers.IsRuntimeMarshallingEnabled(moduleContext),
+                isSwiftSignature);
         }
 
         public static bool IsMarshallingRequired(MethodDesc targetMethod)
@@ -491,9 +497,9 @@ namespace Internal.TypeSystem.Interop
             return false;
         }
 
-        public static bool IsMarshallingRequired(MethodSignature methodSig, ModuleDesc moduleContext)
+        public static bool IsMarshallingRequired(MethodSignature methodSig, ModuleDesc moduleContext, bool isSwiftSignature = false)
         {
-            Marshaller[] marshallers = GetMarshallersForSignature(methodSig, Array.Empty<ParameterMetadata>(), moduleContext);
+            Marshaller[] marshallers = GetMarshallersForSignature(methodSig, Array.Empty<ParameterMetadata>(), moduleContext, isSwiftSignature);
             for (int i = 0; i < marshallers.Length; i++)
             {
                 if (marshallers[i].IsMarshallingRequired())

@@ -3378,7 +3378,50 @@ BOOL PInvoke::MarshalingRequired(
             return TRUE;
 
         callConv = sigInfo.GetCallConv();
+
+#ifdef TARGET_ARM64
+        // UnmanagedCallersOnly conventions come from the attribute rather
+        // than signature modopts. The no-validation variant must be used:
+        // this function is reached from the usage validation itself.
+        if (pMD->HasUnmanagedCallersOnlyAttribute())
+        {
+            CorInfoCallConvExtension ucoCallConv;
+            if (CallConv::TryGetCallingConventionFromUnmanagedCallersOnlyNoValidation(pMD, &ucoCallConv))
+                callConv = ucoCallConv;
+        }
+#endif // TARGET_ARM64
     }
+#ifdef TARGET_ARM64
+    else
+    {
+        // A standalone (calli) signature carries its unmanaged calling
+        // convention in the signature itself: as a modopt on the return type
+        // when the calling-convention byte is IMAGE_CEE_CS_CALLCONV_UNMANAGED.
+        // Read it so convention-conditional marshalling rules (the Swift
+        // hardware-vector admittance below) treat a calli signature exactly
+        // like the equivalent P/Invoke signature. ARM64-only, matching
+        // IsSwiftCallConvMethod: on other targets the Swift vector lowering
+        // does not exist, and admitting the signature here would replace the
+        // deterministic marshalling rejection with a silent wrong-ABI call.
+        SigPointer sigTmp = sigPointer;
+        uint32_t callConvInfo;
+        IfFailThrow(sigTmp.GetCallingConvInfo(&callConvInfo));
+        if ((callConvInfo & IMAGE_CEE_CS_CALLCONV_MASK) == IMAGE_CEE_CS_CALLCONV_UNMANAGED)
+        {
+            uint32_t argCount;
+            IfFailThrow(sigTmp.GetData(&argCount));
+
+            CallConvBuilder builder;
+            UINT errorResID;
+            HRESULT hr = CallConv::TryGetUnmanagedCallingConventionFromModOptSigStartingAtRetType(
+                GetScopeHandle(pModule), sigTmp, &builder, &errorResID);
+            if (SUCCEEDED(hr) && (builder.GetCurrentCallConv() != CallConvBuilder::UnsetValue))
+            {
+                callConv = builder.GetCurrentCallConv();
+            }
+        }
+    }
+#endif // TARGET_ARM64
 
     if (sigPointer.IsNull())
     {
@@ -3457,7 +3500,8 @@ BOOL PInvoke::MarshalingRequired(
             case ELEMENT_TYPE_GENERICINST:
             {
                 TypeHandle hndArgType = arg.GetTypeHandleThrowing(pModule, pTypeContext);
-                bool isValidGeneric = IsValidForGenericMarshalling(hndArgType.GetMethodTable(), false, runtimeMarshallingEnabled);
+                bool isValidGeneric = IsValidForGenericMarshalling(hndArgType.GetMethodTable(), false, runtimeMarshallingEnabled,
+                                                                   callConv == CorInfoCallConvExtension::Swift);
                 if(!hndArgType.IsValueType() ||  !isValidGeneric)
                     return true;
 
@@ -3587,7 +3631,8 @@ static MarshalInfo::MarshalType DoMarshalReturnValue(MetaSig&           msig,
                                                      DWORD              dwStubFlags,
                                                      MethodDesc         *pMD,
                                                      bool&              fStubNeedsCOM,
-                                                     int                nativeArgIndex
+                                                     int                nativeArgIndex,
+                                                     bool               isSwiftSignature
                                                      DEBUG_ARG(LPCUTF8  pDebugName)
                                                      DEBUG_ARG(LPCUTF8  pDebugClassName)
                                                      )
@@ -3632,7 +3677,8 @@ static MarshalInfo::MarshalType DoMarshalReturnValue(MetaSig&           msig,
                                 SF_IsThrowOnUnmappableChar(dwStubFlags),
                                 TRUE,
                                 pMD,
-                                TRUE
+                                TRUE,
+                                isSwiftSignature
                                 DEBUG_ARG(pDebugName)
                                 DEBUG_ARG(pDebugClassName)
                                 DEBUG_ARG(0)
@@ -3744,6 +3790,14 @@ static COR_ILMETHOD_DECODER* CreatePInvokeStubWorker(
     CONTRACTL_END;
 
     SF_ConsistencyCheck(dwStubFlags);
+
+    // The Swift hardware-vector admittance is ARM64-only, matching
+    // IsSwiftCallConvMethod and the ARM64-only Swift vector lowering.
+#ifdef TARGET_ARM64
+    bool isSwiftSignature = (unmgdCallConv == CorInfoCallConvExtension::Swift);
+#else
+    bool isSwiftSignature = false;
+#endif // TARGET_ARM64
 
 #ifdef _DEBUG
     if (g_pConfig->ShouldBreakOnInteropStubSetup(pSigDesc->m_pDebugName))
@@ -3884,7 +3938,8 @@ static COR_ILMETHOD_DECODER* CreatePInvokeStubWorker(
                                                  SF_IsThrowOnUnmappableChar(dwStubFlags),
                                                  TRUE,
                                                  pMD,
-                                                 TRUE
+                                                 TRUE,
+                                                 isSwiftSignature
                                                  DEBUG_ARG(pSigDesc->m_pDebugName)
                                                  DEBUG_ARG(pSigDesc->m_pDebugClassName)
                                                  DEBUG_ARG(i + 1));
@@ -3949,7 +4004,8 @@ static COR_ILMETHOD_DECODER* CreatePInvokeStubWorker(
                             dwStubFlags,
                             pMD,
                             fStubNeedsCOM,
-                            nativeArgIndex
+                            nativeArgIndex,
+                            isSwiftSignature
                             DEBUG_ARG(pSigDesc->m_pDebugName)
                             DEBUG_ARG(pSigDesc->m_pDebugClassName)
                             );
@@ -4069,7 +4125,8 @@ static void CreateStructMarshalIL(MethodTable* pMT, PInvokeStubLinker* stubLinke
             SF_IsThrowOnUnmappableChar(dwStubFlags),
             TRUE,
             NULL,
-            TRUE
+            TRUE,
+            FALSE
             DEBUG_ARG(NULL)
             DEBUG_ARG(NULL)
             DEBUG_ARG(-1 /* field */));

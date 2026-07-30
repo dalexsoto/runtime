@@ -590,6 +590,9 @@ namespace Internal.TypeSystem.Ecma
                     case 1:
                         layoutKind = MetadataLayoutKind.CUnion;
                         break;
+                    case 2:
+                        layoutKind = MetadataLayoutKind.SwiftStruct;
+                        break;
                     default:
                         ThrowHelper.ThrowTypeLoadException(this);
                         return default; // Invalid kind value

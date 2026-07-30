@@ -343,7 +343,8 @@ class EEClassLayoutInfo
             Sequential,
             Explicit,
             CStruct,
-            CUnion
+            CUnion,
+            SwiftStruct
         };
     private:
         enum {
@@ -378,6 +379,11 @@ class EEClassLayoutInfo
 
         // Packing size in bytes (1, 2, 4, 8 etc.)
         BYTE       m_cbPackingSize;
+
+        // SwiftStruct layout only: the unpadded Swift size. The managed
+        // instance size is the stride (size aligned up); nested SwiftStruct
+        // fields advance by this value so later fields tail-pack.
+        UINT32     m_cbSwiftActualSize;
 
     public:
 
@@ -518,6 +524,19 @@ class EEClassLayoutInfo
             MethodTable** pByValueClassCache,
             ULONG cFields
         );
+
+        ULONG InitializeSwiftStructFieldLayout(
+            FieldDesc* pFields,
+            MethodTable** pByValueClassCache,
+            ULONG cFields
+        );
+
+        UINT32 GetSwiftActualSize() const
+        {
+            LIMITED_METHOD_CONTRACT;
+            _ASSERTE(GetLayoutType() == LayoutType::SwiftStruct);
+            return m_cbSwiftActualSize;
+        }
 
     private:
         void SetIsZeroSized(BOOL isZeroSized)

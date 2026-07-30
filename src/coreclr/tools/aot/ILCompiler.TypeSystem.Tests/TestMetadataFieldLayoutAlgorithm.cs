@@ -47,6 +47,10 @@ namespace TypeSystemTests
             {
                 return ComputeCUnionFieldLayout(type, numInstanceFields);
             }
+            else if (layoutMetadata.Kind == MetadataLayoutKind.SwiftStruct)
+            {
+                return ComputeSwiftStructFieldLayout(type, numInstanceFields);
+            }
             else
             {
                 return ComputeAutoFieldLayout(type, numInstanceFields, layoutMetadata);

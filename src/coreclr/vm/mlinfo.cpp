@@ -9,6 +9,7 @@
 #include "common.h"
 #include "mlinfo.h"
 #include "dllimport.h"
+#include "callconvbuilder.hpp"
 #include "sigformat.h"
 #include "eeconfig.h"
 #include "eehash.h"
@@ -557,7 +558,7 @@ CustomMarshalerInfo *EEMarshalingData::GetIEnumeratorMarshalerInfo()
 }
 #endif // FEATURE_COMINTEROP
 
-bool IsValidForGenericMarshalling(MethodTable* pMT, bool isFieldScenario, bool builtInMarshallingEnabled)
+bool IsValidForGenericMarshalling(MethodTable* pMT, bool isFieldScenario, bool builtInMarshallingEnabled, bool allowSwiftHardwareVectors)
 {
     _ASSERTE(pMT != NULL);
 
@@ -573,12 +574,24 @@ bool IsValidForGenericMarshalling(MethodTable* pMT, bool isFieldScenario, bool b
     if (builtInMarshallingEnabled && !pMT->IsBlittable())
         return false;
 
+    // The Swift calling convention on ARM64 has an implemented lowering for
+    // the 8-byte and 16-byte hardware vector types, so they are valid in
+    // CallConvSwift signatures. See docs/design/interop/swift/lowering.md.
+    if (allowSwiftHardwareVectors
+        && (pMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR64T))
+            || pMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR128T))))
+    {
+        return true;
+    }
+
     // Generics (blittable when built-in is enabled) are allowed to be marshalled with the following exceptions:
     // * Nullable<T>: We don't want to be locked into the default behavior as we may want special handling later
     // * Span<T>: Not supported by built-in marshalling
     // * ReadOnlySpan<T>: Not supported by built-in marshalling
     // * Vector64<T>: Represents the __m64 ABI primitive which requires currently unimplemented handling
+    //   (except in Swift signatures on ARM64, above)
     // * Vector128<T>: Represents the __m128 ABI primitive which requires currently unimplemented handling
+    //   (except in Swift signatures on ARM64, above)
     // * Vector256<T>: Represents the __m256 ABI primitive which requires currently unimplemented handling
     // * Vector512<T>: Represents the __m512 ABI primitive which requires currently unimplemented handling
     // * Vector<T>: Has a variable size (either __m128 or __m256) and isn't readily usable for interop scenarios
@@ -590,6 +603,35 @@ bool IsValidForGenericMarshalling(MethodTable* pMT, bool isFieldScenario, bool b
         && !pMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR256T))
         && !pMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTOR512T))
         && !pMT->HasSameTypeDefAs(CoreLibBinder::GetClass(CLASS__VECTORT));
+}
+
+//==========================================================================
+// Whether a method's unmanaged calling convention is Swift (P/Invoke or
+// UnmanagedCallersOnly), for hardware-vector marshalling decisions.
+//==========================================================================
+bool IsSwiftCallConvMethod(MethodDesc* pMD)
+{
+    STANDARD_VM_CONTRACT;
+
+#ifdef TARGET_ARM64
+    if (pMD == NULL)
+        return false;
+
+    if (pMD->IsPInvoke())
+    {
+        PInvokeStaticSigInfo sigInfo(pMD);
+        return sigInfo.GetCallConv() == CorInfoCallConvExtension::Swift;
+    }
+
+    if (pMD->HasUnmanagedCallersOnlyAttribute())
+    {
+        CorInfoCallConvExtension callConv;
+        if (CallConv::TryGetCallingConventionFromUnmanagedCallersOnlyNoValidation(pMD, &callConv))
+            return callConv == CorInfoCallConvExtension::Swift;
+    }
+#endif // TARGET_ARM64
+
+    return false;
 }
 
 namespace
@@ -720,7 +762,8 @@ MarshalInfo::MarshalInfo(Module* pModule,
                          BOOL ThrowOnUnmappableChar,
                          BOOL fEmitsIL,
                          MethodDesc* pMD,
-                         BOOL fLoadCustomMarshal
+                         BOOL fLoadCustomMarshal,
+                         BOOL isSwiftSignature
 #ifdef _DEBUG
                          ,
                          LPCUTF8 pDebugName,
@@ -1828,7 +1871,8 @@ MarshalInfo::MarshalInfo(Module* pModule,
                 if (m_pMT == NULL)
                     break;
 
-                if (!IsValidForGenericMarshalling(m_pMT, IsFieldScenario()))
+                if (!IsValidForGenericMarshalling(m_pMT, IsFieldScenario(), true /* builtInMarshallingEnabled */,
+                                                  isSwiftSignature || IsSwiftCallConvMethod(pMD)))
                 {
                     m_resID = IDS_EE_BADMARSHAL_GENERICS_RESTRICTION;
                     IfFailGoto(E_FAIL, lFail);
