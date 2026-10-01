@@ -2404,7 +2404,7 @@ VOID
 PALAPI
 PAL_JitWriteProtect(bool writeEnable);
 
-#elif defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_MACCATALYST)
+#elif defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_WATCHOS) || defined(HOST_MACCATALYST)
 
 // Define empty macro for platforms that don't allow JIT write protection
 #define PAL_JitWriteProtect(writeEnable) do { } while(0)

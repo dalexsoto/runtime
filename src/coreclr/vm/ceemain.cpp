@@ -730,7 +730,7 @@ void EEStartupHelper()
         PAL_SetShutdownCallback(EESocketCleanupHelper);
 #endif // TARGET_UNIX
 
-#if defined(HOST_ANDROID) || defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_MACCATALYST)
+#if defined(HOST_ANDROID) || defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_WATCHOS) || defined(HOST_MACCATALYST)
         PAL_SetLogManagedCallstackForSignalCallback(EEPolicy::LogManagedCallstackForSignal);
 #endif
 

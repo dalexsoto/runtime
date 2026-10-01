@@ -765,7 +765,11 @@ PALEXPORT int32_t AppleCryptoNative_GetConnectionInfo(nw_connection_t connection
 
     sec_protocol_metadata_t secMeta = nw_tls_copy_sec_protocol_metadata(meta);
 
+#if defined(TARGET_WATCHOS)
+    const char* alpn = sec_protocol_metadata_copy_negotiated_protocol(secMeta);
+#else
     const char* alpn = sec_protocol_metadata_get_negotiated_protocol(secMeta);
+#endif
     if (alpn != NULL)
     {
         strcpy(negotiatedAlpn, alpn);
@@ -776,6 +780,14 @@ PALEXPORT int32_t AppleCryptoNative_GetConnectionInfo(nw_connection_t connection
         negotiatedAlpn[0] = '\0';
         *negotiatedAlpnLength = 0;
     }
+
+#if defined(TARGET_WATCHOS)
+    // The copy API returns const char*, but its ownership contract requires free().
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-qual"
+    free((void*)alpn);
+#pragma clang diagnostic pop
+#endif
 
     tls_protocol_version_t version = sec_protocol_metadata_get_negotiated_tls_protocol_version(secMeta);
 #pragma clang diagnostic push

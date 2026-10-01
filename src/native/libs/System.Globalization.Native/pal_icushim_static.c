@@ -21,7 +21,7 @@
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 #endif
-#if !defined(TARGET_MACCATALYST) && !defined(TARGET_IOS) && !defined(TARGET_TVOS)
+#if !defined(TARGET_MACCATALYST) && !defined(TARGET_IOS) && !defined(TARGET_TVOS) && !defined(TARGET_WATCHOS)
 static int32_t isLoaded = 0;
 static int32_t isDataSet = 0;
 
@@ -177,7 +177,7 @@ error:
 int32_t
 GlobalizationNative_LoadICUData(const char* path)
 {
-#if defined(TARGET_MACCATALYST) || defined(TARGET_IOS) || defined(TARGET_TVOS)
+#if defined(TARGET_MACCATALYST) || defined(TARGET_IOS) || defined(TARGET_TVOS) || defined(TARGET_WATCHOS)
     if (path && path[0] != '/')
     {
         // if the path is relative, prepend the app bundle root
@@ -264,4 +264,3 @@ int32_t GlobalizationNative_GetICUVersion(void)
     return (versionInfo[0] << 24) + (versionInfo[1] << 16) + (versionInfo[2] << 8) + versionInfo[3];
 }
 #endif
-

@@ -328,7 +328,7 @@ FOR_ALL_ICU_FUNCTIONS
 
 #else // !defined(STATIC_ICU)
 
-#if defined(TARGET_MACCATALYST) || defined(TARGET_IOS) || defined(TARGET_TVOS)
+#if defined(TARGET_MACCATALYST) || defined(TARGET_IOS) || defined(TARGET_TVOS) || defined(TARGET_WATCHOS)
 const char* GlobalizationNative_GetICUDataPathRelativeToAppBundleRoot(const char* path);
 const char* GlobalizationNative_GetICUDataPathFallback(void);
 #endif

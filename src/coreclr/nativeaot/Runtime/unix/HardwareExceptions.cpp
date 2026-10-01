@@ -599,7 +599,7 @@ bool InitializeHardwareExceptionHandling()
     }
 
 #if defined(HOST_APPLE)
-#ifndef HOST_TVOS // task_set_exception_ports is not supported on tvOS
+#if !defined(HOST_TVOS) && !defined(HOST_WATCHOS) // task_set_exception_ports is unavailable on these platforms
 	// LLDB installs task-wide Mach exception handlers. XNU dispatches Mach
 	// exceptions first to any registered "activation" handler and then to
 	// any registered task handler before dispatching the exception to a

@@ -82,7 +82,7 @@ PAL_X509ContentType AppleCryptoNative_X509GetContentType(uint8_t* pbData, int32_
         return PAL_Certificate;
     }
 
-#if !defined(TARGET_MACCATALYST) && !defined(TARGET_IOS) && !defined(TARGET_TVOS)
+#if !defined(TARGET_MACCATALYST) && !defined(TARGET_IOS) && !defined(TARGET_TVOS) && !defined(TARGET_WATCHOS)
     SecExternalFormat dataFormat = kSecFormatPKCS7;
     SecExternalFormat actualFormat = dataFormat;
     SecExternalItemType itemType = kSecItemTypeAggregate;

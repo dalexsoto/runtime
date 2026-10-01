@@ -121,7 +121,7 @@ endif ()
 if (CLR_CMAKE_TARGET_UNIX OR CLR_CMAKE_TARGET_BROWSER OR CLR_CMAKE_TARGET_WASI)
     include(configure.cmake)
 
-    if (NOT CLR_CMAKE_TARGET_BROWSER AND NOT CLR_CMAKE_TARGET_WASI AND NOT CLR_CMAKE_TARGET_IOS AND NOT CLR_CMAKE_TARGET_TVOS)
+    if (NOT CLR_CMAKE_TARGET_BROWSER AND NOT CLR_CMAKE_TARGET_WASI AND NOT CLR_CMAKE_TARGET_IOS AND NOT CLR_CMAKE_TARGET_TVOS AND NOT CLR_CMAKE_TARGET_WATCHOS)
         add_subdirectory(System.IO.Ports.Native)
     endif ()
 
@@ -154,7 +154,7 @@ if (CLR_CMAKE_TARGET_UNIX OR CLR_CMAKE_TARGET_BROWSER OR CLR_CMAKE_TARGET_WASI)
     if (CLR_CMAKE_TARGET_BROWSER OR CLR_CMAKE_TARGET_WASI)
         # skip for now
     elseif (CLR_CMAKE_TARGET_APPLE)
-        if (NOT CLR_CMAKE_TARGET_TVOS) # no gssapi on tvOS, see https://developer.apple.com/documentation/gss
+        if (NOT CLR_CMAKE_TARGET_TVOS AND NOT CLR_CMAKE_TARGET_WATCHOS) # no GSS API on tvOS or watchOS
             add_subdirectory(System.Net.Security.Native)
         endif ()
 

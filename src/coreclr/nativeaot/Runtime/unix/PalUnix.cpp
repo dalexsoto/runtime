@@ -680,7 +680,7 @@ UInt32_BOOL PalVirtualProtect(_In_ void* pAddress, size_t size, uint32_t protect
     return mprotect(pPageStart, memSize, unixProtect) == 0;
 }
 
-#if (defined(HOST_MACCATALYST) || defined(HOST_IOS) || defined(HOST_TVOS)) && defined(HOST_ARM64)
+#if (defined(HOST_MACCATALYST) || defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_WATCHOS)) && defined(HOST_ARM64)
 extern "C" void sys_icache_invalidate(const void* start, size_t len);
 #endif
 
@@ -705,7 +705,7 @@ void PalFlushInstructionCache(_In_ void* pAddress, size_t size)
         __builtin___clear_cache((char *)begin, (char *)endOrNextPageBegin);
         begin = endOrNextPageBegin;
     }
-#elif (defined(HOST_MACCATALYST) || defined(HOST_IOS) || defined(HOST_TVOS)) && defined(HOST_ARM64)
+#elif (defined(HOST_MACCATALYST) || defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_WATCHOS)) && defined(HOST_ARM64)
     sys_icache_invalidate (pAddress, size);
 #elif !defined(HOST_WASM)
     __builtin___clear_cache((char *)pAddress, (char *)pAddress + size);

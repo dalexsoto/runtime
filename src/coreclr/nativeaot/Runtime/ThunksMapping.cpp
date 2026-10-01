@@ -120,7 +120,7 @@ EXTERN_C HRESULT QCALLTYPE RhAllocateThunksMapping(void** ppThunksSection)
     }
 
 #if defined(HOST_APPLE) && defined(HOST_ARM64)
-#if defined(HOST_MACCATALYST) || defined(HOST_IOS) || defined(HOST_TVOS)
+#if defined(HOST_MACCATALYST) || defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_WATCHOS)
     RhFailFast(); // we don't expect to get here on these platforms
 #elif defined(HOST_OSX)
     pthread_jit_write_protect_np(0);
@@ -281,7 +281,7 @@ EXTERN_C HRESULT QCALLTYPE RhAllocateThunksMapping(void** ppThunksSection)
     }
 
 #if defined(HOST_APPLE) && defined(HOST_ARM64)
-#if defined(HOST_MACCATALYST) || defined(HOST_IOS) || defined(HOST_TVOS)
+#if defined(HOST_MACCATALYST) || defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_WATCHOS)
     RhFailFast(); // we don't expect to get here on these platforms
 #elif defined(HOST_OSX)
     pthread_jit_write_protect_np(1);

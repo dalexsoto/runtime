@@ -950,7 +950,7 @@ int NOINLINE EEPolicy::HandleFatalError(UINT exitCode, UINT_PTR address, LPCWSTR
     return -1;
 }
 
-#if defined(HOST_ANDROID) || defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_MACCATALYST)
+#if defined(HOST_ANDROID) || defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_WATCHOS) || defined(HOST_MACCATALYST)
 // Logs the managed callstack when a signal is received.
 void EEPolicy::LogManagedCallstackForSignal(LPCWSTR signalName)
 {

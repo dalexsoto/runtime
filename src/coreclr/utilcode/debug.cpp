@@ -12,7 +12,7 @@
 #include "ex.h"
 #include "corexcep.h"
 #include <time.h>
-#if defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_MACCATALYST) || defined(HOST_ANDROID)
+#if defined(HOST_IOS) || defined(HOST_TVOS) || defined(HOST_WATCHOS) || defined(HOST_MACCATALYST) || defined(HOST_ANDROID)
 #include <sys/time.h>
 #endif
 

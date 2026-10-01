@@ -165,7 +165,7 @@ The .NET Foundation licenses this file to you under the MIT license.
       <NetCoreAppNativeLibrary Include="System.Native" />
       <NetCoreAppNativeLibrary Include="System.Globalization.Native" Condition="'$(StaticICULinking)' != 'true' and '$(InvariantGlobalization)' != 'true'" />
       <NetCoreAppNativeLibrary Include="System.IO.Compression.Native" />
-      <NetCoreAppNativeLibrary Include="System.Net.Security.Native" Condition="!$(_targetOS.StartsWith('tvos')) and '$(_linuxLibcFlavor)' != 'bionic'" />
+      <NetCoreAppNativeLibrary Include="System.Net.Security.Native" Condition="!$(_targetOS.StartsWith('tvos')) and !$(_targetOS.StartsWith('watchos')) and '$(_linuxLibcFlavor)' != 'bionic'" />
       <NetCoreAppNativeLibrary Include="System.Security.Cryptography.Native.Apple" Condition="'$(_IsApplePlatform)' == 'true'" />
       <!-- No OpenSSL on Apple platforms or Android -->
       <NetCoreAppNativeLibrary Include="System.Security.Cryptography.Native.OpenSsl" Condition="'$(StaticOpenSslLinking)' != 'true' and '$(_IsApplePlatform)' != 'true' and '$(_targetOS)' != 'android'" />
@@ -236,7 +236,7 @@ The .NET Foundation licenses this file to you under the MIT license.
       <NativeFramework Include="Network" />
       <NativeFramework Include="Security" />
       <!-- The library builds don't reference the GSS API on tvOS builds. -->
-      <NativeFramework Condition="!$(_targetOS.StartsWith('tvos'))" Include="GSS" />
+      <NativeFramework Condition="!$(_targetOS.StartsWith('tvos')) and !$(_targetOS.StartsWith('watchos'))" Include="GSS" />
     </ItemGroup>
 
     <ItemGroup>
