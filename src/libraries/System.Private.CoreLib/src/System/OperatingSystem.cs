@@ -26,6 +26,8 @@ namespace System
         "IOS"
 #elif TARGET_TVOS
         "TVOS"
+#elif TARGET_WATCHOS
+        "WATCHOS"
 #elif TARGET_ANDROID
         "ANDROID"
 #elif TARGET_OPENHARMONY
@@ -288,7 +290,7 @@ namespace System
 #endif
 
         internal static bool IsApplePlatform() =>
-#if TARGET_OSX || TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_OSX || TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             true;
 #else
             false;

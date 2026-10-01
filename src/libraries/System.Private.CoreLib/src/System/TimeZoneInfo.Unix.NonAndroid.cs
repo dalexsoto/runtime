@@ -423,7 +423,7 @@ namespace System
 #pragma warning disable IDE0074 // Use compound assignment
             if (tzVariable == null)
             {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 tzVariable = Interop.Sys.GetDefaultTimeZone();
 #elif TARGET_WASI || TARGET_BROWSER
                 if (UseEmbeddedTzDatabase)

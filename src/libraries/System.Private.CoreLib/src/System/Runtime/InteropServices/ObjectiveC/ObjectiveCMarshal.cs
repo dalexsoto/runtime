@@ -15,6 +15,7 @@ namespace System.Runtime.InteropServices.ObjectiveC
     [SupportedOSPlatform("ios")]
     [SupportedOSPlatform("tvos")]
     [SupportedOSPlatform("maccatalyst")]
+    [SupportedOSPlatform("watchos")]
     [CLSCompliant(false)]
     public static partial class ObjectiveCMarshal
     {

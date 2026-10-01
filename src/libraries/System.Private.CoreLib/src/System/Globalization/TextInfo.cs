@@ -805,7 +805,7 @@ namespace System.Globalization
                 NlsChangeCase(src, srcLen, dstBuffer, dstBufferCapacity, bToUpper);
                 return;
             }
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 ChangeCaseNative(src, srcLen, dstBuffer, dstBufferCapacity, bToUpper);

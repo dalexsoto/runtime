@@ -12,6 +12,7 @@ namespace System.Runtime.InteropServices.ObjectiveC
     [SupportedOSPlatform("ios")]
     [SupportedOSPlatform("tvos")]
     [SupportedOSPlatform("maccatalyst")]
+    [SupportedOSPlatform("watchos")]
     [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
     public sealed class ObjectiveCTrackedTypeAttribute : Attribute
     {

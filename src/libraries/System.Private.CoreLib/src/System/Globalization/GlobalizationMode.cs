@@ -13,7 +13,7 @@ namespace System.Globalization
         private static partial class Settings
         {
             internal static bool Invariant { get; } = AppContextConfigHelper.GetBooleanConfig("System.Globalization.Invariant", "DOTNET_SYSTEM_GLOBALIZATION_INVARIANT");
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             internal static bool Hybrid { get; } = true;
 #endif
             internal static bool PredefinedCulturesOnly { get; } = AppContextConfigHelper.GetBooleanConfig("System.Globalization.PredefinedCulturesOnly", "DOTNET_SYSTEM_GLOBALIZATION_PREDEFINED_CULTURES_ONLY", GlobalizationMode.Invariant);
@@ -38,7 +38,7 @@ namespace System.Globalization
             }
         }
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
         internal static bool Hybrid => Settings.Hybrid;
 #endif
         internal static bool PredefinedCulturesOnly => Settings.PredefinedCulturesOnly;

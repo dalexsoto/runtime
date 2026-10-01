@@ -38,7 +38,7 @@ namespace Microsoft.Win32.SafeHandles
             || AppContextConfigHelper.GetBooleanConfig(
                 "System.IO.DisableFileLocking",
                 "DOTNET_SYSTEM_IO_DISABLEFILELOCKING",
-                defaultValue: (OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst()) || OperatingSystem.IsTvOS());
+                defaultValue: (OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst()) || OperatingSystem.IsTvOS() || OperatingSystem.IsWatchOS());
 
         // not using bool? as it's not thread safe
         private NullableBool _supportsRandomAccess /* = NullableBool.Undefined */;

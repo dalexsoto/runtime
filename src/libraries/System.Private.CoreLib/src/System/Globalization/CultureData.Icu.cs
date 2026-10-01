@@ -131,7 +131,7 @@ namespace System.Globalization
                 realNameBuffer = string.Concat(realNameBuffer.AsSpan(0, index), ICU_COLLATION_KEYWORD, alternateSortName);
             }
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 _sWindowsName = GetLocaleNameNative(realNameBuffer);
@@ -186,7 +186,7 @@ namespace System.Globalization
 
         internal static unsafe bool GetDefaultLocaleName([NotNullWhen(true)] out string? windowsName)
         {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 windowsName = Interop.Globalization.GetDefaultLocaleNameNative();
@@ -303,7 +303,7 @@ namespace System.Globalization
             Debug.Assert(_sWindowsName != null, "[CultureData.GetTimeFormatString(bool shortFormat)] Expected _sWindowsName to be populated already");
 
             ReadOnlySpan<char> span;
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 string res = Interop.Globalization.GetLocaleTimeFormatNative(_sWindowsName, shortFormat);
@@ -350,7 +350,7 @@ namespace System.Globalization
         internal static bool IcuIsEnsurePredefinedLocaleName(string name)
         {
             Debug.Assert(!GlobalizationMode.UseNls);
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 return Interop.Globalization.IsPredefinedLocaleNative(name);
@@ -526,7 +526,7 @@ namespace System.Globalization
             }
 
             int bufferLength;
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 bufferLength = Interop.Globalization.GetLocalesNative(null, 0);
@@ -544,7 +544,7 @@ namespace System.Globalization
 
             char[] chars = new char[bufferLength];
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 bufferLength = Interop.Globalization.GetLocalesNative(chars, bufferLength);

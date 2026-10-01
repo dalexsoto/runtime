@@ -239,7 +239,7 @@ namespace System
             if (GlobalizationMode.Invariant)
                 return displayName;
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (!GlobalizationMode.Hybrid)
                 return displayName;
 #endif
@@ -257,7 +257,7 @@ namespace System
             if (GlobalizationMode.Invariant)
                 return standardDisplayName;
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (!GlobalizationMode.Hybrid)
                 return standardDisplayName;
 #endif
@@ -275,7 +275,7 @@ namespace System
             if (GlobalizationMode.Invariant)
                 return daylightDisplayName;
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (!GlobalizationMode.Hybrid)
                 return daylightDisplayName;
 #endif

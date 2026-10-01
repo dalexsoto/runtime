@@ -488,7 +488,7 @@ namespace System.Globalization
         private int CompareStringCore(ReadOnlySpan<char> string1, ReadOnlySpan<char> string2, CompareOptions options) =>
             GlobalizationMode.UseNls ?
                 NlsCompareString(string1, string2, options) :
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             GlobalizationMode.Hybrid ?
                 CompareStringNative(string1, string2, options) :
 #endif
@@ -613,7 +613,7 @@ namespace System.Globalization
             else
             {
                 // Linguistic comparison requested and we don't need to special-case any args.
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                 {
                     throw new PlatformNotSupportedException(SR.PlatformNotSupported_HybridGlobalizationWithMatchLength);
@@ -756,7 +756,7 @@ namespace System.Globalization
             else
             {
                 // Linguistic comparison requested and we don't need to special-case any args.
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                 {
                     throw new PlatformNotSupportedException(SR.PlatformNotSupported_HybridGlobalizationWithMatchLength);
@@ -1596,7 +1596,7 @@ namespace System.Globalization
                     }
                     else
                     {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                 {
                     throw new PlatformNotSupportedException(GetPNSEText("SortVersion"));
@@ -1612,7 +1612,7 @@ namespace System.Globalization
 
         public int LCID => CultureInfo.GetCultureInfo(Name).LCID;
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
         private static string GetPNSEText(string funcName) => SR.Format(SR.PlatformNotSupported_HybridGlobalization, funcName);
         private static string GetPNSEWithReason(string funcName, string reason) => SR.Format(SR.PlatformNotSupportedWithReason_HybridGlobalization, funcName, reason);
 #endif

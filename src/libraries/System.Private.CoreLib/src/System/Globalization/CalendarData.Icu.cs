@@ -91,7 +91,7 @@ namespace System.Globalization
 
             // NOTE: there are no 'user overrides' on Linux
             int count;
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 count = Interop.Globalization.GetCalendarsNative(localeName, calendars, calendars.Length);
@@ -429,7 +429,7 @@ namespace System.Globalization
 
         private static unsafe bool EnumCalendarInfo(string localeName, CalendarId calendarId, CalendarDataType dataType, IcuEnumCalendarsData* callbackContext)
         {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             callbackContext->Results.AddRange(GetCalendarInfoNative(localeName, calendarId, dataType).Split("||"));
             return callbackContext->Results.Count > 0;
 #else

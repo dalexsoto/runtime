@@ -21,7 +21,7 @@ namespace System.Globalization
 
             string[]? eraNames;
             int latestEra;
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 eraNames = Interop.Globalization.GetCalendarInfoNative("ja-JP", CalendarId.JAPAN, CalendarDataType.EraNames).Split("||");
@@ -78,7 +78,7 @@ namespace System.Globalization
             }
 
             string[] abbrevEnglishEraNames;
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 var abbrevEraNames = Interop.Globalization.GetCalendarInfoNative("ja", CalendarId.JAPAN, CalendarDataType.AbbrevEraNames);
@@ -154,7 +154,7 @@ namespace System.Globalization
             int startMonth;
             int startDay;
             bool result;
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
                 result = Interop.Globalization.GetJapaneseEraStartDateNative(era, out startYear, out startMonth, out startDay);
             else

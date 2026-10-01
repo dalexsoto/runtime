@@ -11,7 +11,7 @@ namespace System
     {
         private const string InvariantUtcStandardDisplayName = "Coordinated Universal Time";
         private const string FallbackCultureName = "en-US";
-#if !TARGET_MACCATALYST && !TARGET_IOS && !TARGET_TVOS
+#if !TARGET_MACCATALYST && !TARGET_IOS && !TARGET_TVOS && !TARGET_WATCHOS
         private const string GmtId = "GMT";
 
         // Some time zones may give better display names using their location names rather than their generic name.
@@ -30,7 +30,7 @@ namespace System
         // Helper function to get the standard display name for the UTC static time zone instance
         private static string GetUtcStandardDisplayName()
         {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (!GlobalizationMode.Hybrid)
             {
                 // For this target, be consistent with other time zone display names that use an abbreviation.
@@ -57,7 +57,7 @@ namespace System
         // Helper function to get the full display name for the UTC static time zone instance
         private static string GetUtcFullDisplayName(string timeZoneId, string standardDisplayName)
         {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (!GlobalizationMode.Hybrid)
             {
                 // For this target, be consistent with other time zone display names that use the ID.
@@ -111,7 +111,7 @@ namespace System
                 {
                     fixed (char* bufferPtr = buffer)
                     {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                         if (GlobalizationMode.Hybrid)
                             return Interop.Globalization.GetTimeZoneDisplayNameNative(locale, locale.Length, id, id.Length, type, bufferPtr, buffer.Length);
 #endif
@@ -131,7 +131,7 @@ namespace System
                     {
                         fixed (char* bufferPtr = buffer)
                         {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                             if (GlobalizationMode.Hybrid)
                                 return Interop.Globalization.GetTimeZoneDisplayNameNative(locale, locale.Length, id, id.Length, type, bufferPtr, buffer.Length);
 #endif
@@ -160,7 +160,7 @@ namespace System
             // Only UTC and its aliases have "(UTC)", handled earlier.  All other zones include an offset, even if it's zero.
             string baseOffsetText = string.Create(null, stackalloc char[128], $"(UTC{(baseUtcOffset >= TimeSpan.Zero ? '+' : '-')}{baseUtcOffset:hh\\:mm})");
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             Debug.Assert(GlobalizationMode.Hybrid);
             string? timeZoneName = null;
             GetDisplayName(timeZoneId, Interop.Globalization.TimeZoneDisplayNameType.TimeZoneName, uiCulture.Name, ref timeZoneName);

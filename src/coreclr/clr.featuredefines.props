@@ -54,11 +54,11 @@
         <FeatureVarargs>true</FeatureVarargs>
     </PropertyGroup>
 
-    <PropertyGroup Condition="'$(TargetsOSX)' == 'true' OR '$(TargetsMacCatalyst)' == 'true' OR '$(TargetsiOS)' == 'true' OR '$(TargetstvOS)' == 'true'">
+    <PropertyGroup Condition="'$(TargetsOSX)' == 'true' OR '$(TargetsAppleMobile)' == 'true'">
         <FeatureObjCMarshal>true</FeatureObjCMarshal>
     </PropertyGroup>
 
-    <PropertyGroup Condition="'$(TargetsMacCatalyst)' == 'true' OR '$(TargetsiOS)' == 'true' OR '$(TargetstvOS)' == 'true'">
+    <PropertyGroup Condition="'$(TargetsAppleMobile)' == 'true'">
         <FeatureInterpreter>true</FeatureInterpreter>
     </PropertyGroup>
 

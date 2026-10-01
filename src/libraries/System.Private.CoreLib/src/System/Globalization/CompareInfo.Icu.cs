@@ -43,7 +43,7 @@ namespace System.Globalization
             _isAsciiEqualityOrdinal = GetIsAsciiEqualityOrdinal(interopCultureName);
             if (!GlobalizationMode.Invariant)
             {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return;
 #endif
@@ -97,7 +97,7 @@ namespace System.Globalization
             }
             else
             {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return IndexOfCoreNative(target, source, options, fromBeginning, matchLengthPtr);
 #endif
@@ -223,7 +223,7 @@ namespace System.Globalization
                 return -1;
 
             InteropCall:
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return IndexOfCoreNative(target, source, options, fromBeginning, matchLengthPtr);
 #endif
@@ -317,7 +317,7 @@ namespace System.Globalization
                 return -1;
 
             InteropCall:
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return IndexOfCoreNative(target, source, options, fromBeginning, matchLengthPtr);
 #endif
@@ -346,7 +346,7 @@ namespace System.Globalization
             }
             else
             {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return NativeStartsWith(prefix, source, options);
 #endif
@@ -432,7 +432,7 @@ namespace System.Globalization
                 return true;
 
             InteropCall:
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return NativeStartsWith(prefix, source, options);
 #endif
@@ -504,7 +504,7 @@ namespace System.Globalization
                 return true;
 
             InteropCall:
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return NativeStartsWith(prefix, source, options);
 #endif
@@ -530,7 +530,7 @@ namespace System.Globalization
             }
             else
             {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return NativeEndsWith(suffix, source, options);
 #endif
@@ -617,7 +617,7 @@ namespace System.Globalization
                 return true;
 
             InteropCall:
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return NativeEndsWith(suffix, source, options);
 #endif
@@ -689,7 +689,7 @@ namespace System.Globalization
                 return true;
 
             InteropCall:
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                     return NativeEndsWith(suffix, source, options);
 #endif
@@ -709,7 +709,7 @@ namespace System.Globalization
                 throw new ArgumentException(SR.Argument_InvalidFlag, nameof(options));
             }
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 AssertComparisonSupported(options);
@@ -720,7 +720,7 @@ namespace System.Globalization
             fixed (char* pSource = source)
             {
                 int sortKeyLength;
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                 {
                     sortKeyLength = Interop.Globalization.GetSortKeyNative(m_name, m_name.Length, pSource, source.Length, null, 0, options);
@@ -734,7 +734,7 @@ namespace System.Globalization
 
                 fixed (byte* pSortKey = keyData)
                 {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                     if (GlobalizationMode.Hybrid)
                     {
                         if (Interop.Globalization.GetSortKeyNative(m_name, m_name.Length, pSource, source.Length, pSortKey, sortKeyLength, options) != sortKeyLength)
@@ -762,7 +762,7 @@ namespace System.Globalization
             Debug.Assert(!GlobalizationMode.UseNls);
             Debug.Assert((options & ValidCompareMaskOffFlags) == 0);
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 AssertComparisonSupported(options);
@@ -776,7 +776,7 @@ namespace System.Globalization
             fixed (char* pSource = &MemoryMarshal.GetReference(source))
             fixed (byte* pDest = &MemoryMarshal.GetReference(destination))
             {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                 {
                     actualSortKeyLength = Interop.Globalization.GetSortKeyNative(m_name, m_name.Length, pSource, source.Length, pDest, destination.Length, options);
@@ -811,7 +811,7 @@ namespace System.Globalization
             Debug.Assert(!GlobalizationMode.UseNls);
             Debug.Assert((options & ValidCompareMaskOffFlags) == 0);
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 AssertComparisonSupported(options);
@@ -822,7 +822,7 @@ namespace System.Globalization
 
             fixed (char* pSource = &MemoryMarshal.GetReference(source))
             {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                 if (GlobalizationMode.Hybrid)
                 {
                     return Interop.Globalization.GetSortKeyNative(m_name, m_name.Length, pSource, source.Length, null, 0, options);
@@ -866,7 +866,7 @@ namespace System.Globalization
             Debug.Assert(!GlobalizationMode.UseNls);
             Debug.Assert((options & (CompareOptions.Ordinal | CompareOptions.OrdinalIgnoreCase)) == 0);
 
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
             if (GlobalizationMode.Hybrid)
             {
                 AssertComparisonSupported(options);
@@ -889,7 +889,7 @@ namespace System.Globalization
             {
                 fixed (byte* pSortKey = &MemoryMarshal.GetReference(sortKey))
                 {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                     if (GlobalizationMode.Hybrid)
                     {
                         sortKeyLength = Interop.Globalization.GetSortKeyNative(m_name, m_name.Length, pSource, source.Length, pSortKey, sortKey.Length, options);
@@ -912,7 +912,7 @@ namespace System.Globalization
 
                     fixed (byte* pSortKey = &MemoryMarshal.GetReference(sortKey))
                     {
-#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS
+#if TARGET_MACCATALYST || TARGET_IOS || TARGET_TVOS || TARGET_WATCHOS
                         if (GlobalizationMode.Hybrid)
                         {
                             sortKeyLength = Interop.Globalization.GetSortKeyNative(m_name, m_name.Length, pSource, source.Length, pSortKey, sortKey.Length, options);

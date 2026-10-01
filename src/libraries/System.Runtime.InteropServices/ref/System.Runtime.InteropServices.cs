@@ -2435,6 +2435,7 @@ namespace System.Runtime.InteropServices.ObjectiveC
     [System.Runtime.Versioning.SupportedOSPlatformAttribute("ios")]
     [System.Runtime.Versioning.SupportedOSPlatformAttribute("tvos")]
     [System.Runtime.Versioning.SupportedOSPlatformAttribute("maccatalyst")]
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("watchos")]
     [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
     public sealed class ObjectiveCTrackedTypeAttribute : System.Attribute
     {
@@ -2445,6 +2446,7 @@ namespace System.Runtime.InteropServices.ObjectiveC
     [System.Runtime.Versioning.SupportedOSPlatformAttribute("ios")]
     [System.Runtime.Versioning.SupportedOSPlatformAttribute("tvos")]
     [System.Runtime.Versioning.SupportedOSPlatformAttribute("maccatalyst")]
+    [System.Runtime.Versioning.SupportedOSPlatformAttribute("watchos")]
     [System.CLSCompliantAttribute(false)]
     public static class ObjectiveCMarshal
     {
