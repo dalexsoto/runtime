@@ -63,4 +63,12 @@
     </ItemGroup>
 
   </Target>
+
+  <!-- CreatePackage only tracks the nuspec, whose contents do not change when tool binaries change. -->
+  <Target Name="UpdateILCompilerPackageInputs"
+          AfterTargets="GenerateNuSpec"
+          Inputs="@(PackageFile)"
+          Outputs="$(NuSpecPath)">
+    <Touch Files="$(NuSpecPath)" />
+  </Target>
 </Project>
