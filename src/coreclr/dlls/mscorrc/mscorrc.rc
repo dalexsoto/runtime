@@ -688,6 +688,7 @@ END
 STRINGTABLE DISCARDABLE
 BEGIN
     IDS_NATIVE_IMAGE_CANNOT_BE_LOADED_MULTIPLE_TIMES "Native image cannot be loaded multiple times"
+    IDS_WATCHOS_REQUIRES_MACHO_R2R "watchOS cannot execute ReadyToRun code from a PE image. Publish a composite Mach-O image and register it with the runtime host."
 END
 
 STRINGTABLE DISCARDABLE

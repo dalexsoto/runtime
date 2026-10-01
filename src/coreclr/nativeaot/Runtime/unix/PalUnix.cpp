@@ -649,6 +649,9 @@ static int W32toUnixAccessControl(uint32_t flProtect)
 _Ret_maybenull_ _Post_writable_byte_size_(size) void* PalVirtualAlloc(size_t size, uint32_t protect)
 {
     int unixProtect = W32toUnixAccessControl(protect);
+#if defined(HOST_WATCHOS)
+    ASSERT_MSG((unixProtect & PROT_EXEC) == 0, "watchOS must not allocate anonymous executable memory");
+#endif
 
     int flags = MAP_ANON | MAP_PRIVATE;
 
@@ -672,6 +675,9 @@ void PalVirtualFree(_In_ void* pAddress, size_t size)
 UInt32_BOOL PalVirtualProtect(_In_ void* pAddress, size_t size, uint32_t protect)
 {
     int unixProtect = W32toUnixAccessControl(protect);
+#if defined(HOST_WATCHOS)
+    ASSERT_MSG((unixProtect & PROT_EXEC) == 0, "watchOS must not make anonymous memory executable");
+#endif
 
     // mprotect expects the address to be page-aligned
     uint8_t* pPageStart = ALIGN_DOWN((uint8_t*)pAddress, OS_PAGE_SIZE);

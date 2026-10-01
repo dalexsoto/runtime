@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.IL">
+  <PropertyGroup>
+    <IlasmAssemblyName>WritableRvaSharedPage</IlasmAssemblyName>
+    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <!-- AOT compilers place RVA field data in read-only native sections. -->
+    <NativeAotIncompatible>true</NativeAotIncompatible>
+    <MonoAotIncompatible>true</MonoAotIncompatible>
+    <CrossGenTest>false</CrossGenTest>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="WritableRva.il" />
+  </ItemGroup>
+</Project>

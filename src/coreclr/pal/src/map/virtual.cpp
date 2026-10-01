@@ -910,6 +910,14 @@ VirtualAlloc(
          IN DWORD flAllocationType, /* Type of allocation */
          IN DWORD flProtect)        /* Type of access protection */
 {
+#if defined(HOST_WATCHOS) && defined(_DEBUG)
+    if ((flProtect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0 ||
+        (flAllocationType & MEM_RESERVE_EXECUTABLE) != 0)
+    {
+        ASSERT("watchOS must not allocate anonymous executable memory.\n");
+    }
+#endif
+
     LPVOID  pRetVal       = NULL;
     CPalThread *pthrCurrent;
 
@@ -1196,6 +1204,13 @@ VirtualProtect(
            IN DWORD flNewProtect,
            OUT PDWORD lpflOldProtect)
 {
+#if defined(HOST_WATCHOS) && defined(_DEBUG)
+    if ((flNewProtect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0)
+    {
+        ASSERT("watchOS must not make anonymous memory executable.\n");
+    }
+#endif
+
     BOOL     bRetVal = FALSE;
     PCMI     pEntry = NULL;
     SIZE_T   MemSize = 0;

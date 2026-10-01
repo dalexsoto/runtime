@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.IL">
+  <PropertyGroup>
+    <RequiresProcessIsolation>true</RequiresProcessIsolation>
+    <!-- AOT compilers place RVA field data in read-only native sections. -->
+    <NativeAotIncompatible>true</NativeAotIncompatible>
+    <MonoAotIncompatible>true</MonoAotIncompatible>
+    <CrossGenTest>false</CrossGenTest>
+    <IlasmFlags Condition="'$(TargetArchitecture)' == 'arm64'">$(IlasmFlags) -PE64 -ARM64</IlasmFlags>
+    <IlasmFlags Condition="'$(TargetArchitecture)' == 'x64'">$(IlasmFlags) -PE64 -X64</IlasmFlags>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="WritableRva.il" />
+  </ItemGroup>
+</Project>

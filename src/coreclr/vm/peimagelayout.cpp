@@ -21,7 +21,7 @@ extern "C"
 
 static bool AllowR2RForImage(PEImage* pOwner)
 {
-#if defined(TARGET_IOS) || defined(TARGET_TVOS) || defined(TARGET_MACCATALYST)
+#if defined(TARGET_IOS) || defined(TARGET_TVOS) || defined(TARGET_WATCHOS) || defined(TARGET_MACCATALYST)
     return false;
 #else
     // Allow R2R for files
@@ -103,12 +103,19 @@ PEImageLayout* PEImageLayout::LoadConverted(PEImage* pOwner, bool disableMapping
         pFlat = (FlatImageLayout*)pOwner->GetFlatLayout();
         pFlat->AddRef();
     }
+#if defined(TARGET_WATCHOS)
+    else
+    {
+        pFlat = new FlatImageLayout(pOwner);
+    }
+#else
     else if (AllowR2RForImage(pOwner))
     {
         // We only expect to be converting images that aren't already opened in the R2R composite case
         pFlat = new FlatImageLayout(pOwner);
         _ASSERTE(pFlat->HasReadyToRunHeader());
     }
+#endif
 
     if (pFlat == NULL || !pFlat->CheckILOnlyFormat())
         EEFileLoadException::Throw(pOwner->GetPathForErrorMessages(), COR_E_BADIMAGEFORMAT);
@@ -137,7 +144,12 @@ PEImageLayout* PEImageLayout::Load(PEImage* pOwner, HRESULT* loadFailure)
 {
     STANDARD_VM_CONTRACT;
 
+#if defined(TARGET_WATCHOS)
+    // PE files contain IL/metadata here. Only the platform loader may map signed Mach-O code as executable.
+    bool disableMapping = true;
+#else
     bool disableMapping = CLRConfig::GetConfigValue(CLRConfig::INTERNAL_PELoader_DisableMapping);
+#endif
 
     if (pOwner->IsFile())
     {
@@ -178,13 +190,20 @@ PEImageLayout* PEImageLayout::LoadFlat(PEImage* pOwner)
 PEImageLayout *PEImageLayout::LoadNative(LPCWSTR fullPath)
 {
     STANDARD_VM_CONTRACT;
+#if defined(TARGET_WATCHOS)
+    COMPlusThrowHR(COR_E_BADIMAGEFORMAT, IDS_WATCHOS_REQUIRES_MACHO_R2R);
+#else
     return new NativeImageLayout(fullPath);
+#endif
 }
 
 #ifdef TARGET_UNIX
 DWORD SectionCharacteristicsToPageProtection(UINT characteristics)
 {
     _ASSERTE((characteristics & VAL32(IMAGE_SCN_MEM_READ)) != 0);
+#if defined(TARGET_WATCHOS)
+    characteristics &= ~VAL32(IMAGE_SCN_MEM_EXECUTE);
+#endif
     DWORD pageProtection;
 
     if ((characteristics & VAL32(IMAGE_SCN_MEM_WRITE)) != 0)
@@ -1030,6 +1049,23 @@ void* FlatImageLayout::LoadImageByCopyingParts(SIZE_T* m_imageParts) const
         section++;
     }
 
+#if defined(TARGET_WATCHOS)
+    // PE sections can share a native page. Apply read-only protection first so any
+    // writable section grants write access to the whole shared page without execute access.
+    DWORD oldProtection;
+    if (!ClrVirtualProtect(base, allocSize, PAGE_READONLY, &oldProtection))
+        ThrowLastError();
+
+    for (section = sectionStart; section < sectionEnd; section++)
+    {
+        DWORD size = VAL32(section->Misc.VirtualSize);
+        if (size != 0 && (section->Characteristics & VAL32(IMAGE_SCN_MEM_WRITE)) != 0)
+        {
+            if (!ClrVirtualProtect((BYTE*)base + VAL32(section->VirtualAddress), size, PAGE_READWRITE, &oldProtection))
+                ThrowLastError();
+        }
+    }
+#else
     // Apply write protection to copied headers
     DWORD oldProtection;
     if (!ClrVirtualProtect((void*)base, VAL32(FindNTHeaders()->OptionalHeader.SizeOfHeaders),
@@ -1053,6 +1089,7 @@ void* FlatImageLayout::LoadImageByCopyingParts(SIZE_T* m_imageParts) const
             ThrowLastError();
         }
     }
+#endif // TARGET_WATCHOS
 #endif // defined(HOST_OSX) && defined(HOST_ARM64)
 
     return base;

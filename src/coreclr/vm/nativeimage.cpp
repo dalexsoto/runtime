@@ -243,6 +243,13 @@ NativeImage *NativeImage::Open(
 {
     STANDARD_VM_CONTRACT;
 
+#if defined(TARGET_WATCHOS)
+    if (!isPlatformNative)
+    {
+        COMPlusThrowHR(COR_E_BADIMAGEFORMAT, IDS_WATCHOS_REQUIRES_MACHO_R2R);
+    }
+#endif
+
     NativeImage *pExistingImage = AppDomain::GetCurrentDomain()->GetNativeImage(nativeImageFileName);
     if (pExistingImage != nullptr)
     {
