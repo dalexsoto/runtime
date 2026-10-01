@@ -28,6 +28,9 @@ namespace System.Net.Http
 #elif TARGET_TVOS
         private const string NativeHandlerType = "System.Net.Http.NSUrlSessionHandler, Microsoft.tvOS";
         private const string GetHttpMessageHandlerType = "ObjCRuntime.RuntimeOptions, Microsoft.tvOS";
+#elif TARGET_WATCHOS
+        private const string NativeHandlerType = "System.Net.Http.NSUrlSessionHandler, Microsoft.watchOS";
+        private const string GetHttpMessageHandlerType = "ObjCRuntime.RuntimeOptions, Microsoft.watchOS";
 #else
 #error Unknown target
 #endif

@@ -31,9 +31,11 @@ namespace Internal.Cryptography
 #if NET
         [UnsupportedOSPlatformGuard("ios")]
         [UnsupportedOSPlatformGuard("tvos")]
+        [UnsupportedOSPlatformGuard("watchos")]
         public static bool IsDSASupported =>
             !OperatingSystem.IsIOS() &&
             !OperatingSystem.IsTvOS() &&
+            !OperatingSystem.IsWatchOS() &&
             !OperatingSystem.IsMacOS() &&
             !OperatingSystem.IsMacCatalyst() &&
             !OperatingSystem.IsBrowser();

@@ -11,7 +11,8 @@ namespace System.Security.Cryptography
             OperatingSystem.IsMacOS() ||
             OperatingSystem.IsMacCatalyst() ||
             OperatingSystem.IsIOSVersionAtLeast(14) ||
-            OperatingSystem.IsTvOSVersionAtLeast(14);
+            OperatingSystem.IsTvOSVersionAtLeast(14) ||
+            OperatingSystem.IsWatchOSVersionAtLeast(7);
 
         private static void ExtractCore(
             HashAlgorithmName hashAlgorithmName,

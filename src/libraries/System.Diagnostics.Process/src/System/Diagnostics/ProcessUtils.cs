@@ -13,7 +13,7 @@ namespace System.Diagnostics
         internal static int s_cachedSerializationSwitch;
 
         internal static bool PlatformSupportsProcessStartAndKill
-            => !((OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst()) || OperatingSystem.IsTvOS());
+            => !((OperatingSystem.IsIOS() && !OperatingSystem.IsMacCatalyst()) || OperatingSystem.IsTvOS() || OperatingSystem.IsWatchOS());
 
         internal static bool PlatformSupportsConsole
             => !(OperatingSystem.IsAndroid() || OperatingSystem.IsMacCatalyst());

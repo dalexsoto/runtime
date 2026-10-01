@@ -25,6 +25,14 @@ namespace System.Net.Http
         private Func<HttpConnectionSettings, HttpMessageHandlerStage, HttpMessageHandlerStage>? _decompressionHandlerFactory;
         private bool _disposed;
 
+        public SocketsHttpHandler()
+        {
+            if (OperatingSystem.IsWatchOS())
+            {
+                throw new PlatformNotSupportedException(SR.net_http_sockets_watchos);
+            }
+        }
+
         // Accessed via UnsafeAccessor from HttpWebRequest.
         internal HttpConnectionSettings Settings => _settings;
 
@@ -41,7 +49,7 @@ namespace System.Net.Http
         /// Gets a value that indicates whether the handler is supported on the current platform.
         /// </summary>
         [UnsupportedOSPlatformGuard("browser")]
-        public static bool IsSupported => !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi();
+        public static bool IsSupported => !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi() && !OperatingSystem.IsWatchOS();
 
         public bool UseCookies
         {

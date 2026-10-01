@@ -19,7 +19,7 @@ namespace Microsoft.Extensions.Configuration.UserSecrets.Test
             var appData = Environment.GetEnvironmentVariable("APPDATA");
             var root = appData ?? Environment.GetEnvironmentVariable("HOME");
 #if NET
-            if (appData is null && (OperatingSystem.IsIOS() || OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst()))
+            if (appData is null && (OperatingSystem.IsIOS() || OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst() || OperatingSystem.IsWatchOS()))
             {
                 root = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             }

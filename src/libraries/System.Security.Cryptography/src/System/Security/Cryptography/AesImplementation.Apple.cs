@@ -11,6 +11,7 @@ namespace System.Security.Cryptography
             OperatingSystem.IsMacOS() ||
             OperatingSystem.IsIOSVersionAtLeast(15) ||
             OperatingSystem.IsTvOSVersionAtLeast(15) ||
+            OperatingSystem.IsWatchOSVersionAtLeast(8) ||
             OperatingSystem.IsMacCatalystVersionAtLeast(15);
 
         private static UniversalCryptoTransform CreateTransformCore(

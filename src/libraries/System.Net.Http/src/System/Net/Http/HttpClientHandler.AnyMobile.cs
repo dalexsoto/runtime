@@ -789,6 +789,6 @@ namespace System.Net.Http
         [FeatureSwitchDefinition("System.Net.Http.UseNativeHttpHandler")]
         private static bool IsNativeHandlerEnabled => RuntimeSettingParser.QueryRuntimeSettingSwitch(
                 "System.Net.Http.UseNativeHttpHandler",
-                false);
+                OperatingSystem.IsWatchOS());
     }
 }

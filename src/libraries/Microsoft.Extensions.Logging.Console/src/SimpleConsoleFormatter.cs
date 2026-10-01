@@ -18,6 +18,7 @@ namespace Microsoft.Extensions.Logging.Console
 #if NET
         private static bool IsAndroidOrAppleMobile => OperatingSystem.IsAndroid() ||
                                                       OperatingSystem.IsTvOS() ||
+                                                      OperatingSystem.IsWatchOS() ||
                                                       OperatingSystem.IsIOS(); // returns true on MacCatalyst
 #else
         private static bool IsAndroidOrAppleMobile => false;

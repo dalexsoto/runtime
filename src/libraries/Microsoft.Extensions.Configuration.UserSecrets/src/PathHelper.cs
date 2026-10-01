@@ -61,7 +61,7 @@ namespace Microsoft.Extensions.Configuration.UserSecrets
             string? appData = Environment.GetEnvironmentVariable("APPDATA");
             string? home = Environment.GetEnvironmentVariable("HOME");
 #if NET
-            if (OperatingSystem.IsIOS() || OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst())
+            if (OperatingSystem.IsIOS() || OperatingSystem.IsTvOS() || OperatingSystem.IsMacCatalyst() || OperatingSystem.IsWatchOS())
             {
                 // The Apple mobile HOME directory is the app container root, which is not writable.
                 home = null;
