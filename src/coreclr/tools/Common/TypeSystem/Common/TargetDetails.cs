@@ -25,7 +25,9 @@ namespace Internal.TypeSystem
         OpenBSD,
         SunOS,
         Browser,
-        Wasi
+        Wasi,
+        watchOS,
+        watchOSSimulator
     }
 
     public enum TargetAbi
@@ -321,7 +323,7 @@ namespace Internal.TypeSystem
 
         /// <summary>
         /// Returns True if compiling for Apple family of operating systems.
-        /// Currently including OSX, MacCatalyst, iOS, iOSSimulator, tvOS and tvOSSimulator
+        /// Includes macOS, Mac Catalyst, iOS, tvOS, watchOS and their simulators.
         /// </summary>
         public bool IsApplePlatform
         {
@@ -332,7 +334,9 @@ namespace Internal.TypeSystem
                     OperatingSystem == TargetOS.iOS ||
                     OperatingSystem == TargetOS.iOSSimulator ||
                     OperatingSystem == TargetOS.tvOS ||
-                    OperatingSystem == TargetOS.tvOSSimulator;
+                    OperatingSystem == TargetOS.tvOSSimulator ||
+                    OperatingSystem == TargetOS.watchOS ||
+                    OperatingSystem == TargetOS.watchOSSimulator;
             }
         }
 

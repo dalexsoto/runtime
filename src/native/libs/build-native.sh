@@ -48,6 +48,9 @@ if [[ "$__TargetOS" == browser || "$__TargetOS" == wasi || "$__TargetOS" == ios 
 elif [[ "$__TargetOS" == tvos || "$__TargetOS" == tvossimulator ]]; then
     # nothing to do here
     true
+elif [[ "$__TargetOS" == watchos || "$__TargetOS" == watchossimulator ]]; then
+    # nothing to do here
+    true
 elif [[ "$__TargetOS" == osx || "$__TargetOS" == maccatalyst ]]; then
     # nothing to do here
     true
@@ -94,6 +97,18 @@ elif [[ "$__TargetOS" == ios ]]; then
         __CMakeArgs="-DCMAKE_OSX_ARCHITECTURES=\"armv7;armv7s\" $__CMakeArgs"
     else
         echo "Error: Unknown iOS architecture $__TargetArch."
+        exit 1
+    fi
+elif [[ "$__TargetOS" == watchos || "$__TargetOS" == watchossimulator ]]; then
+    watchSdk=watchos
+    if [[ "$__TargetOS" == watchossimulator ]]; then
+        watchSdk=watchsimulator
+    fi
+    __CMakeArgs="-DCMAKE_SYSTEM_NAME=watchOS -DCMAKE_OSX_SYSROOT=$watchSdk -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 $__CMakeArgs"
+    if [[ "$__TargetArch" == arm64 ]]; then
+        __CMakeArgs="-DCMAKE_OSX_ARCHITECTURES=\"arm64\" $__CMakeArgs"
+    else
+        echo "Error: Unsupported watchOS architecture $__TargetArch. Only arm64 is supported."
         exit 1
     fi
 elif [[ "$__TargetOS" == tvossimulator ]]; then

@@ -137,6 +137,17 @@ if(CLR_CMAKE_HOST_OS STREQUAL tvos OR CLR_CMAKE_HOST_OS STREQUAL tvossimulator)
     endif()
 endif(CLR_CMAKE_HOST_OS STREQUAL tvos OR CLR_CMAKE_HOST_OS STREQUAL tvossimulator)
 
+if(CLR_CMAKE_HOST_OS STREQUAL watchos OR CLR_CMAKE_HOST_OS STREQUAL watchossimulator)
+    set(CLR_CMAKE_HOST_UNIX 1)
+    set(CLR_CMAKE_HOST_APPLE 1)
+    set(CLR_CMAKE_HOST_WATCHOS 1)
+    if(CMAKE_OSX_ARCHITECTURES STREQUAL arm64)
+        set(CLR_CMAKE_HOST_UNIX_ARM64 1)
+    else()
+        clr_unknown_arch()
+    endif()
+endif()
+
 if(CLR_CMAKE_HOST_OS STREQUAL android)
     set(CLR_CMAKE_HOST_UNIX 1)
     set(CLR_CMAKE_HOST_LINUX 1)
@@ -395,11 +406,20 @@ if(CLR_CMAKE_TARGET_OS STREQUAL tvos OR CLR_CMAKE_TARGET_OS STREQUAL tvossimulat
     set(CLR_CMAKE_TARGET_TVOS 1)
 endif(CLR_CMAKE_TARGET_OS STREQUAL tvos OR CLR_CMAKE_TARGET_OS STREQUAL tvossimulator)
 
-# Umbrella variable for Apple mobile platforms (iOS, tvOS, MacCatalyst).
+if(CLR_CMAKE_TARGET_OS STREQUAL watchos OR CLR_CMAKE_TARGET_OS STREQUAL watchossimulator)
+    set(CLR_CMAKE_TARGET_UNIX 1)
+    set(CLR_CMAKE_TARGET_APPLE 1)
+    set(CLR_CMAKE_TARGET_WATCHOS 1)
+    if(NOT CLR_CMAKE_TARGET_ARCH_ARM64)
+        clr_unknown_arch()
+    endif()
+endif()
+
+# Umbrella variable for Apple mobile platforms (iOS, tvOS, watchOS, MacCatalyst).
 # These share the same runtime constraints: static linking, no fork(),
 # no build tools, hybrid globalization, etc. Use per-platform variables
 # only where they genuinely differ (compiler targets, gssapi, Swift).
-if (CLR_CMAKE_TARGET_MACCATALYST OR CLR_CMAKE_TARGET_IOS OR CLR_CMAKE_TARGET_TVOS)
+if (CLR_CMAKE_TARGET_MACCATALYST OR CLR_CMAKE_TARGET_IOS OR CLR_CMAKE_TARGET_TVOS OR CLR_CMAKE_TARGET_WATCHOS)
     set(CLR_CMAKE_TARGET_APPLE_MOBILE 1)
 endif()
 

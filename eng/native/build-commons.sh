@@ -163,6 +163,19 @@ build_native()
             echo "Error: Unknown iOS architecture $__TargetArch."
             exit 1
         fi
+    elif [[ "$targetOS" == watchos || "$targetOS" == watchossimulator ]]; then
+        cmakeArgs="-C $__RepoRootDir/eng/native/tryrun_ios_tvos.cmake $cmakeArgs"
+        local watchSdk=watchos
+        if [[ "$targetOS" == watchossimulator ]]; then
+            watchSdk=watchsimulator
+        fi
+        cmakeArgs="-DCMAKE_SYSTEM_NAME=watchOS -DCMAKE_OSX_SYSROOT=$watchSdk -DCMAKE_OSX_DEPLOYMENT_TARGET=26.0 $cmakeArgs"
+        if [[ "$__TargetArch" == arm64 ]]; then
+            cmakeArgs="-DCMAKE_OSX_ARCHITECTURES=\"arm64\" $cmakeArgs"
+        else
+            echo "Error: Unsupported watchOS architecture $__TargetArch. Only arm64 is supported."
+            exit 1
+        fi
     elif [[ "$targetOS" == tvossimulator ]]; then
         cmakeArgs="-C $__RepoRootDir/eng/native/tryrun_ios_tvos.cmake $cmakeArgs"
 
@@ -588,6 +601,9 @@ elif [[ "$__TargetOS" == ios || "$__TargetOS" == iossimulator ]]; then
     # nothing to do here
     true
 elif [[ "$__TargetOS" == tvos || "$__TargetOS" == tvossimulator ]]; then
+    # nothing to do here
+    true
+elif [[ "$__TargetOS" == watchos || "$__TargetOS" == watchossimulator ]]; then
     # nothing to do here
     true
 elif [[ "$__TargetOS" == osx || "$__TargetOS" == maccatalyst ]]; then

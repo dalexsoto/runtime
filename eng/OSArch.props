@@ -12,8 +12,9 @@
     <HostOS>$(_hostOS)</HostOS>
     <TargetOS Condition="'$(TargetOS)' == '' and '$(RuntimeIdentifier)' == 'browser-wasm'">browser</TargetOS>
     <TargetOS Condition="'$(TargetOS)' == ''">$(_hostOS)</TargetOS>
-    <TargetsMobile Condition="'$(TargetOS)' == 'ios' or '$(TargetOS)' == 'iossimulator' or '$(TargetOS)' == 'maccatalyst' or '$(TargetOS)' == 'tvos' or '$(TargetOS)' == 'tvossimulator' or '$(TargetOS)' == 'android' or '$(TargetOS)' == 'browser' or '$(TargetOS)' == 'wasi'">true</TargetsMobile>
-    <TargetsAppleMobile Condition="'$(TargetOS)' == 'ios' or '$(TargetOS)' == 'iossimulator' or '$(TargetOS)' == 'maccatalyst' or '$(TargetOS)' == 'tvos' or '$(TargetOS)' == 'tvossimulator'">true</TargetsAppleMobile>
+    <TargetsWatchOS Condition="'$(TargetOS)' == 'watchos' or '$(TargetOS)' == 'watchossimulator'">true</TargetsWatchOS>
+    <TargetsMobile Condition="'$(TargetOS)' == 'ios' or '$(TargetOS)' == 'iossimulator' or '$(TargetOS)' == 'maccatalyst' or '$(TargetOS)' == 'tvos' or '$(TargetOS)' == 'tvossimulator' or '$(TargetOS)' == 'android' or '$(TargetOS)' == 'browser' or '$(TargetOS)' == 'wasi' or '$(TargetsWatchOS)' == 'true'">true</TargetsMobile>
+    <TargetsAppleMobile Condition="'$(TargetOS)' == 'ios' or '$(TargetOS)' == 'iossimulator' or '$(TargetOS)' == 'maccatalyst' or '$(TargetOS)' == 'tvos' or '$(TargetOS)' == 'tvossimulator' or '$(TargetsWatchOS)' == 'true'">true</TargetsAppleMobile>
   </PropertyGroup>
 
   <!-- Platform property is required by RepoLayout.props in Arcade SDK. -->

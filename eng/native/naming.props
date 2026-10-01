@@ -39,7 +39,7 @@
         <SymbolsSuffix>.pdb</SymbolsSuffix>
       </PropertyGroup>
     </When>
-    <When Condition="$(TargetRid.StartsWith('osx')) or $(TargetRid.StartsWith('maccatalyst')) or $(TargetRid.StartsWith('ios')) or $(TargetRid.StartsWith('tvos'))">
+    <When Condition="$(TargetRid.StartsWith('osx')) or $(TargetRid.StartsWith('maccatalyst')) or $(TargetRid.StartsWith('ios')) or $(TargetRid.StartsWith('tvos')) or $(TargetRid.StartsWith('watchos'))">
       <PropertyGroup>
         <LibPrefix>lib</LibPrefix>
         <LibSuffix>.dylib</LibSuffix>

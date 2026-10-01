@@ -58,11 +58,12 @@
     <TargetstvOS Condition="'$(TargetOS)' == 'tvos' or '$(TargetOS)' == 'tvossimulator'">true</TargetstvOS>
     <TargetsiOSSimulator Condition="'$(TargetOS)' == 'iossimulator'">true</TargetsiOSSimulator>
     <TargetstvOSSimulator Condition="'$(TargetOS)' == 'tvossimulator'">true</TargetstvOSSimulator>
+    <TargetsWatchOSSimulator Condition="'$(TargetOS)' == 'watchossimulator'">true</TargetsWatchOSSimulator>
     <TargetsAndroid Condition="'$(TargetOS)' == 'android'">true</TargetsAndroid>
     <TargetsBrowser Condition="'$(TargetOS)' == 'browser'">true</TargetsBrowser>
     <TargetsWasi Condition="'$(TargetOS)' == 'wasi'">true</TargetsWasi>
     <TargetsWindows Condition="'$(TargetOS)' == 'windows'">true</TargetsWindows>
-    <TargetsUnix Condition="'$(TargetsOpenBSD)' == 'true' or '$(TargetsFreeBSD)' == 'true' or '$(Targetsillumos)' == 'true' or '$(TargetsSolaris)' == 'true' or '$(TargetsHaiku)' == 'true' or '$(TargetsLinux)' == 'true' or '$(TargetsNetBSD)' == 'true' or '$(TargetsOSX)' == 'true' or '$(TargetsMacCatalyst)' == 'true' or '$(TargetstvOS)' == 'true' or '$(TargetsiOS)' == 'true' or '$(TargetsAndroid)' == 'true'">true</TargetsUnix>
+    <TargetsUnix Condition="'$(TargetsOpenBSD)' == 'true' or '$(TargetsFreeBSD)' == 'true' or '$(Targetsillumos)' == 'true' or '$(TargetsSolaris)' == 'true' or '$(TargetsHaiku)' == 'true' or '$(TargetsLinux)' == 'true' or '$(TargetsNetBSD)' == 'true' or '$(TargetsOSX)' == 'true' or '$(TargetsMacCatalyst)' == 'true' or '$(TargetstvOS)' == 'true' or '$(TargetsiOS)' == 'true' or '$(TargetsWatchOS)' == 'true' or '$(TargetsAndroid)' == 'true'">true</TargetsUnix>
   </PropertyGroup>
   <PropertyGroup>
     <_ImportedRuntimeIdentifierProps>true</_ImportedRuntimeIdentifierProps>

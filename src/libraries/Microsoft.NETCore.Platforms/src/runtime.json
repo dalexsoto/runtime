@@ -4302,6 +4302,29 @@
         "wasi"
       ]
     },
+    "watchos": {
+      "#import": [
+        "unix"
+      ]
+    },
+    "watchos-arm64": {
+      "#import": [
+        "watchos",
+        "unix-arm64"
+      ]
+    },
+    "watchossimulator": {
+      "#import": [
+        "watchos"
+      ]
+    },
+    "watchossimulator-arm64": {
+      "#import": [
+        "watchossimulator",
+        "watchos",
+        "unix-arm64"
+      ]
+    },
     "win": {
       "#import": [
         "any"
