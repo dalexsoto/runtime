@@ -2507,6 +2507,13 @@ namespace Internal.JitInterface
                 out callerModule,
                 out useInstantiatingStub);
 
+            if (_compilation.TypeSystemContext.Target.OperatingSystem is TargetOS.watchOS or TargetOS.watchOSSimulator
+                && (flags & CORINFO_CALLINFO_FLAGS.CORINFO_CALLINFO_CALLVIRT) != 0
+                && !targetMethod.Signature.IsStatic && !targetMethod.OwningType.IsValueType)
+            {
+                pResult->nullInstanceCheck = true;
+            }
+
             if (callerMethod.HasInstantiation || callerMethod.OwningType.HasInstantiation)
             {
                 _compilation.NodeFactory.DetectGenericCycles(callerMethod, methodToCall);

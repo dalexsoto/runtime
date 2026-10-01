@@ -1703,6 +1703,13 @@ namespace Internal.JitInterface
                 pResult->nullInstanceCheck = true;
             }
 
+            if (_compilation.TypeSystemContext.Target.OperatingSystem is TargetOS.watchOS or TargetOS.watchOSSimulator
+                && (flags & CORINFO_CALLINFO_FLAGS.CORINFO_CALLINFO_CALLVIRT) != 0
+                && !targetMethod.Signature.IsStatic && !targetMethod.OwningType.IsValueType)
+            {
+                pResult->nullInstanceCheck = true;
+            }
+
             pResult->hMethod = ObjectToHandle(targetMethod);
 
             pResult->accessAllowed = CorInfoIsAccessAllowedResult.CORINFO_ACCESS_ALLOWED;

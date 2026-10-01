@@ -6800,7 +6800,7 @@ public:
     bool fgLateCastExpansionForCall(BasicBlock** pBlock, Statement* stmt, GenTreeCall* call);
 
     PhaseStatus fgInsertGCPolls();
-    BasicBlock* fgCreateGCPoll(GCPollType pollType, BasicBlock* block);
+    BasicBlock* fgCreateGCPoll(GCPollType pollType, BasicBlock* block, bool atEntry = false);
 
     BasicBlock* fgFirstBlockOfHandler(BasicBlock* block);
 

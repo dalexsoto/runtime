@@ -2712,6 +2712,14 @@ GenTree* Compiler::impImportLdvirtftn(GenTree*                thisPtr,
         NO_WAY("Virtual call to a function added via EnC is not supported");
     }
 
+    GenTree* nullCheck = nullptr;
+    if (opts.jitFlags->IsSet(JitFlags::JIT_FLAG_SOFT_NULL_CHECKS) && fgAddrCouldBeNull(thisPtr))
+    {
+        GenTree* receiver;
+        thisPtr   = impCloneExpr(thisPtr, &receiver, CHECK_SPILL_ALL, nullptr DEBUGARG("virtual function receiver"));
+        nullCheck = gtNewNullCheck(receiver);
+    }
+
     GenTreeCall* call = nullptr;
 
     // NativeAOT generic virtual method
@@ -2777,6 +2785,14 @@ GenTree* Compiler::impImportLdvirtftn(GenTree*                thisPtr,
         call->gtCallMoreFlags |= GTF_CALL_M_LDVIRTFTN_INTERFACE;
     }
 
+    if (nullCheck != nullptr)
+    {
+        CallArg* argument     = call->gtArgs.GetArgByIndex(0);
+        GenTree* value        = argument->GetNode();
+        GenTree* checkedValue = gtNewOperNode(GT_COMMA, value->TypeGet(), nullCheck, value);
+        argument->SetEarlyNode(checkedValue);
+        call->gtFlags |= checkedValue->gtFlags & GTF_ALL_EFFECT;
+    }
     return call;
 }
 

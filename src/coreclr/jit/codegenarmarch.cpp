@@ -3147,7 +3147,16 @@ void CodeGen::genCall(GenTreeCall* call)
         const regNumber tmpReg = internalRegisters.Extract(call);
         GetEmitter()->emitIns_R_R_I(INS_ldr, EA_4BYTE, tmpReg, regThis, 0);
 #elif defined(TARGET_ARM64)
-        GetEmitter()->emitIns_R_R_I(INS_ldr, EA_4BYTE, REG_ZR, regThis, 0);
+        if (m_compiler->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_SOFT_NULL_CHECKS))
+        {
+            genJumpToThrowHlpBlk(SCK_NULL_CHECK, [&](BasicBlock* target, bool invert) {
+                genCompareImmAndJump(invert ? GenCondition::NE : GenCondition::EQ, regThis, 0, EA_PTRSIZE, target);
+            });
+        }
+        else
+        {
+            GetEmitter()->emitIns_R_R_I(INS_ldr, EA_4BYTE, REG_ZR, regThis, 0);
+        }
 #endif // TARGET*
     }
 

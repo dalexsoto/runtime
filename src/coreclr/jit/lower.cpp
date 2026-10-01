@@ -362,6 +362,43 @@ bool Lowering::IsProfitableToSetZeroFlag(GenTree* op) const
 GenTree* Lowering::LowerNode(GenTree* node)
 {
     assert(node != nullptr);
+#ifdef TARGET_ARM64
+    if (m_compiler->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_SOFT_NULL_CHECKS))
+    {
+        if (node->OperIs(GT_NULLCHECK))
+        {
+            return LowerSoftwareNullCheck(node->AsIndir());
+        }
+        if (node->OperIsIndir() && node->IndirMayFault(m_compiler))
+        {
+            InsertSoftwareNullCheck(node, &node->AsIndir()->Addr());
+            node->gtFlags |= GTF_IND_NONFAULTING;
+        }
+        else if (node->OperIs(GT_INDEX_ADDR) && !node->AsIndexAddr()->IsNotNull())
+        {
+            InsertSoftwareNullCheck(node, &node->AsIndexAddr()->Arr());
+        }
+#ifdef FEATURE_HW_INTRINSICS
+        else if (node->OperIsHWIntrinsic())
+        {
+            GenTree* address = nullptr;
+            if ((node->AsHWIntrinsic()->OperIsMemoryLoad(&address) ||
+                 node->AsHWIntrinsic()->OperIsMemoryStore(&address)) &&
+                m_compiler->fgAddrCouldBeNull(address))
+            {
+                for (GenTree** edge : node->UseEdges())
+                {
+                    if (*edge == address)
+                    {
+                        InsertSoftwareNullCheck(node, edge);
+                        break;
+                    }
+                }
+            }
+        }
+#endif // FEATURE_HW_INTRINSICS
+    }
+#endif // TARGET_ARM64
     switch (node->gtOper)
     {
         case GT_NULLCHECK:
@@ -728,6 +765,46 @@ GenTree* Lowering::LowerNode(GenTree* node)
 
     return node->gtNext;
 }
+
+#ifdef TARGET_ARM64
+// The unsigned bounds-check form throws when an address is in the null guard
+// range. Capture the address once to preserve evaluation order and GC tracking.
+void Lowering::InsertSoftwareNullCheck(GenTree* node, GenTree** address)
+{
+    (*address)->ClearContained();
+    LIR::Use       use(BlockRange(), address, node);
+    unsigned       temp  = m_compiler->lvaGrabTemp(true DEBUGARG("software null check"));
+    GenTreeLclVar* local = ReplaceWithLclVar(use, temp);
+    GenTree*       load  = m_compiler->gtNewLclVarNode(temp, local->TypeGet());
+    GenTree*       cast  = m_compiler->gtNewCastNode(TYP_I_IMPL, load, true, TYP_I_IMPL);
+    GenTree*       limit =
+        m_compiler->gtNewIconNode(static_cast<ssize_t>(m_compiler->compMaxUncheckedOffsetForNullObject), TYP_I_IMPL);
+    GenTree*   check = new (m_compiler, GT_BOUNDS_CHECK) GenTreeBoundsChk(limit, cast, SCK_NULL_CHECK);
+    LIR::Range range = LIR::SeqTree(m_compiler, check);
+    BlockRange().InsertBefore(node, std::move(range));
+    LowerNode(limit);
+    LowerNode(load);
+    LowerNode(cast);
+    LowerNode(check);
+}
+
+GenTree* Lowering::LowerSoftwareNullCheck(GenTreeIndir* node)
+{
+    GenTree* next    = node->gtNext;
+    GenTree* address = node->Addr();
+    address->ClearContained();
+    GenTree* cast = m_compiler->gtNewCastNode(TYP_I_IMPL, address, true, TYP_I_IMPL);
+    GenTree* limit =
+        m_compiler->gtNewIconNode(static_cast<ssize_t>(m_compiler->compMaxUncheckedOffsetForNullObject), TYP_I_IMPL);
+    GenTree* check = new (m_compiler, GT_BOUNDS_CHECK) GenTreeBoundsChk(limit, cast, SCK_NULL_CHECK);
+    BlockRange().InsertBefore(node, limit, cast, check);
+    BlockRange().Remove(node);
+    LowerNode(limit);
+    LowerNode(cast);
+    LowerNode(check);
+    return next;
+}
+#endif // TARGET_ARM64
 
 //------------------------------------------------------------------------
 // LowerArrLength: lower an array length
@@ -9306,6 +9383,34 @@ void Lowering::LowerBlock(BasicBlock* block)
 //
 void Lowering::AfterLowerBlocks()
 {
+#ifdef TARGET_ARM64
+    if (m_compiler->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_SOFT_NULL_CHECKS))
+    {
+        // Lowering can synthesize faulting loads, such as delegate target loads,
+        // without revisiting LowerNode. Guard those without lowering nodes twice.
+        for (BasicBlock* const block : m_compiler->Blocks())
+        {
+            m_compiler->compCurBB = block;
+            m_block               = block;
+            GenTree* node         = BlockRange().FirstNode();
+            while (node != nullptr)
+            {
+                if (node->OperIs(GT_NULLCHECK))
+                {
+                    node = LowerSoftwareNullCheck(node->AsIndir());
+                    continue;
+                }
+                if (node->OperIsIndir() && node->IndirMayFault(m_compiler))
+                {
+                    InsertSoftwareNullCheck(node, &node->AsIndir()->Addr());
+                    node->gtFlags |= GTF_IND_NONFAULTING;
+                }
+                node = node->gtNext;
+            }
+            assert(CheckBlock(m_compiler, block));
+        }
+    }
+#endif // TARGET_ARM64
 }
 #endif // !TARGET_WASM
 

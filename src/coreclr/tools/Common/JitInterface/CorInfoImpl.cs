@@ -4843,6 +4843,24 @@ namespace Internal.JitInterface
             flags.Set(CorJitFlag.CORJIT_FLAG_AOT);
             flags.Set(CorJitFlag.CORJIT_FLAG_RELOC);
             flags.Set(CorJitFlag.CORJIT_FLAG_USE_PINVOKE_HELPERS);
+            if (_compilation.TypeSystemContext.Target.OperatingSystem is TargetOS.watchOS or TargetOS.watchOSSimulator)
+            {
+                flags.Set(CorJitFlag.CORJIT_FLAG_SOFT_NULL_CHECKS);
+                flags.Set(CorJitFlag.CORJIT_FLAG_COOPERATIVE_GC);
+#if READYTORUN
+                MethodDesc method = MethodBeingCompiled.GetTypicalMethodDefinition();
+                if (method.Name == "PollGC"u8 || method.Name == "PollGCInternal"u8)
+                {
+                    MetadataType threadType = _compilation.TypeSystemContext.SystemModule.GetKnownType("System.Threading"u8, "Thread"u8);
+                    if (method == threadType.GetKnownMethod("PollGC"u8, null) ||
+                        method == threadType.GetKnownMethod("PollGCInternal"u8, null))
+                    {
+                        // The poll and its P/Invoke stub must reach the native transition without recursively polling.
+                        flags.Clear(CorJitFlag.CORJIT_FLAG_COOPERATIVE_GC);
+                    }
+                }
+#endif
+            }
 #if !READYTORUN
             flags.Set(CorJitFlag.CORJIT_FLAG_USE_DISPATCH_HELPERS);
 #endif

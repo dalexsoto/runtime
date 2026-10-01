@@ -76,9 +76,10 @@ static bool blockNeedsGCPoll(BasicBlock* block)
 //
 PhaseStatus Compiler::fgInsertGCPolls()
 {
-    PhaseStatus result = PhaseStatus::MODIFIED_NOTHING;
+    PhaseStatus result        = PhaseStatus::MODIFIED_NOTHING;
+    const bool  cooperativeGC = opts.jitFlags->IsSet(JitFlags::JIT_FLAG_COOPERATIVE_GC);
 
-    if ((optMethodFlags & OMF_NEEDS_GCPOLLS) == 0)
+    if (((optMethodFlags & OMF_NEEDS_GCPOLLS) == 0) && !cooperativeGC)
     {
         return result;
     }
@@ -91,18 +92,39 @@ PhaseStatus Compiler::fgInsertGCPolls()
     {
         compCurBB = block;
 
+        bool hasBackwardEdge = false;
+        if (cooperativeGC)
+        {
+            if (!block->CatchTypeIs(BBCT_NONE))
+            {
+                fgCreateGCPoll(GCPOLL_CALL, block, true);
+                result = PhaseStatus::MODIFIED_EVERYTHING;
+            }
+
+            // Every CFG cycle has a non-increasing edge, including irreducible
+            // and self loops. A managed call alone is not a rendezvous point.
+            for (BasicBlock* const successor : block->Succs())
+            {
+                if (successor->bbNum <= block->bbNum)
+                {
+                    hasBackwardEdge = true;
+                    break;
+                }
+            }
+        }
+
         // When optimizations are enabled, we can't rely on BBF_HAS_SUPPRESSGC_CALL flag:
         // the call could've been moved, e.g., hoisted from a loop, CSE'd, etc.
         if (opts.OptimizationDisabled())
         {
-            if (!block->HasAnyFlag(BBF_HAS_SUPPRESSGC_CALL | BBF_NEEDS_GCPOLL))
+            if (!hasBackwardEdge && !block->HasAnyFlag(BBF_HAS_SUPPRESSGC_CALL | BBF_NEEDS_GCPOLL))
             {
                 continue;
             }
         }
         else
         {
-            if (!blockNeedsGCPoll(block))
+            if (!hasBackwardEdge && !blockNeedsGCPoll(block))
             {
                 continue;
             }
@@ -115,7 +137,8 @@ PhaseStatus Compiler::fgInsertGCPolls()
 
         // If we're doing GCPOLL_CALL, just insert a GT_CALL node before the last node in the block.
 
-        assert(block->KindIs(BBJ_RETURN, BBJ_ALWAYS, BBJ_COND, BBJ_SWITCH, BBJ_THROW, BBJ_CALLFINALLY) ||
+        assert(cooperativeGC ||
+               block->KindIs(BBJ_RETURN, BBJ_ALWAYS, BBJ_COND, BBJ_SWITCH, BBJ_THROW, BBJ_CALLFINALLY) ||
                block->hasEHBoundaryOut());
 
         GCPollType pollType = GCPOLL_INLINE;
@@ -124,7 +147,11 @@ PhaseStatus Compiler::fgInsertGCPolls()
         // can't or don't want to emit an inline poll. Check all of those. If after all of that we still
         // have INLINE, then emit an inline check.
 
-        if (opts.OptimizationDisabled())
+        if (cooperativeGC)
+        {
+            pollType = GCPOLL_CALL;
+        }
+        else if (opts.OptimizationDisabled())
         {
             // Don't split blocks and create inlined polls unless we're optimizing.
             //
@@ -161,6 +188,14 @@ PhaseStatus Compiler::fgInsertGCPolls()
             pollType = GCPOLL_CALL;
         }
 
+        if (block->KindIs(BBJ_CALLFINALLYRET))
+        {
+            // This is a pseudo-block. Poll in its executed callfinally partner.
+            assert(cooperativeGC && block->Prev()->isBBCallFinallyPair());
+            fgCreateGCPoll(GCPOLL_CALL, block->Prev());
+            continue;
+        }
+
         BasicBlock* curBasicBlock = fgCreateGCPoll(pollType, block);
         createdPollBlocks |= (block != curBasicBlock);
         block = curBasicBlock;
@@ -178,12 +213,14 @@ PhaseStatus Compiler::fgInsertGCPolls()
 // Arguments:
 //    pollType  - The type of GC poll to insert
 //    block     - Basic block to insert the poll for
+//    atEntry   - Insert at the block entry, after saving any catch argument
 //
 // Return Value:
 //    If new basic blocks are inserted, the last inserted block; otherwise, the input block.
 //
-BasicBlock* Compiler::fgCreateGCPoll(GCPollType pollType, BasicBlock* block)
+BasicBlock* Compiler::fgCreateGCPoll(GCPollType pollType, BasicBlock* block, bool atEntry)
 {
+    assert(!atEntry || (pollType == GCPOLL_CALL));
     bool createdPollBlocks;
 
     void* addrTrap;
@@ -210,7 +247,27 @@ BasicBlock* Compiler::fgCreateGCPoll(GCPollType pollType, BasicBlock* block)
 
         Statement* newStmt = nullptr;
 
-        if (block->HasFlag(BBF_NEEDS_GCPOLL))
+        if (atEntry)
+        {
+            Statement* first = block->FirstNonPhiDefOrCatchArgStore();
+            if ((first != nullptr) && gtHasCatchArg(first->GetRootNode()))
+            {
+                GenTree* catchArg = first->GetTreeList();
+                assert(catchArg->OperIs(GT_CATCH_ARG));
+                unsigned     temp  = lvaGrabTemp(true DEBUGARG("catch argument before GC poll"));
+                GenTree*     store = gtNewTempStore(temp, catchArg);
+                FindLinkData link  = gtFindLink(first, catchArg);
+                *link.result       = gtNewLclvNode(temp, TYP_REF);
+                Statement* capture = fgNewStmtAtBeg(block, store);
+                gtUpdateStmtSideEffects(first);
+                gtSetStmtInfo(first);
+                fgSetStmtSeq(first);
+                gtSetStmtInfo(capture);
+                fgSetStmtSeq(capture);
+            }
+            newStmt = fgNewStmtAtBeg(block, call);
+        }
+        else if (block->HasFlag(BBF_NEEDS_GCPOLL))
         {
             // This is a block that ends in a tail call; gc probe early.
             //
@@ -1139,8 +1196,19 @@ GenTree* Compiler::fgOptimizeDelegateConstructor(GenTreeCall*            call,
             {
                 JITDUMP("optimized\n");
 
-                GenTree*       thisPointer       = call->gtArgs.GetThisArg()->GetNode();
-                GenTree*       targetObjPointers = call->gtArgs.GetArgByIndex(1)->GetNode();
+                GenTree* thisPointer       = call->gtArgs.GetThisArg()->GetNode();
+                GenTree* targetObjPointers = call->gtArgs.GetArgByIndex(1)->GetNode();
+                if (opts.jitFlags->IsSet(JitFlags::JIT_FLAG_SOFT_NULL_CHECKS) &&
+                    (ldftnToken->m_token.tokenType == CORINFO_TOKENKIND_Ldvirtftn) &&
+                    fgAddrCouldBeNull(targetObjPointers))
+                {
+                    unsigned temp  = lvaGrabTemp(true DEBUGARG("virtual delegate receiver"));
+                    GenTree* store = gtNewTempStore(temp, targetObjPointers);
+                    GenTree* check = gtNewNullCheck(gtNewLclvNode(temp, TYP_REF));
+                    GenTree* value = gtNewLclvNode(temp, TYP_REF);
+                    targetObjPointers =
+                        gtNewOperNode(GT_COMMA, TYP_REF, store, gtNewOperNode(GT_COMMA, TYP_REF, check, value));
+                }
                 CORINFO_LOOKUP pLookup;
                 info.compCompHnd->getReadyToRunDelegateCtorHelper(&ldftnToken->m_token, ldftnToken->m_tokenConstraint,
                                                                   clsHnd, info.compMethodHnd, &pLookup);
@@ -2651,6 +2719,12 @@ PhaseStatus Compiler::fgAddInternal()
 
         fgNewStmtAtBeg(fgFirstBB, gtNewQmarkNode(TYP_VOID, guardCheckCond, callback->AsColon()));
 
+        madeChanges = true;
+    }
+
+    if (opts.jitFlags->IsSet(JitFlags::JIT_FLAG_COOPERATIVE_GC))
+    {
+        fgNewStmtAtBeg(fgFirstBB, gtNewHelperCallNode(CORINFO_HELP_POLL_GC, TYP_VOID));
         madeChanges = true;
     }
 

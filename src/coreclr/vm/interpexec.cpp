@@ -895,7 +895,11 @@ NOINLINE static void InterpThrow(InterpMethodContextFrame* pFrame, const int32_t
     COMPlusThrow(exType);
 }
 
+#ifdef TARGET_WATCHOS
+#define NULL_CHECK(o) do { if (reinterpret_cast<uintptr_t>(o) < NULL_AREA_SIZE) { INTERP_THROW(kNullReferenceException); } } while (0)
+#else
 #define NULL_CHECK(o) do { if ((o) == NULL) { INTERP_THROW(kNullReferenceException); } } while (0)
+#endif // TARGET_WATCHOS
 #define INTERP_THROW(exType) InterpThrow(pFrame, ip, exType)
 
 // When enabled, each opcode dispatches directly to the next one via an indirect goto,

@@ -1560,6 +1560,8 @@ namespace Internal.JitInterface
 
         CORJIT_FLAG_USE_DISPATCH_HELPERS    = 31, // The JIT should use helpers for interface dispatch instead of virtual stub dispatch
         CORJIT_FLAG_VERIFY_GC_MODE_TRANSITIONS = 32, // The JIT should emit the diagnostic helpers that verify GC mode transitions are legal
+        CORJIT_FLAG_SOFT_NULL_CHECKS        = 33, // Throw for null accesses without relying on hardware exception handlers
+        CORJIT_FLAG_COOPERATIVE_GC          = 34, // Emit GC rendezvous points without relying on asynchronous thread suspension
     }
 
     public struct CORJIT_FLAGS

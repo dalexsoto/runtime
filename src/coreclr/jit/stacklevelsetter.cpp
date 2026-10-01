@@ -215,6 +215,14 @@ bool StackLevelSetter::MayUseThrowHelperBlock(GenTree* node)
         return true;
     }
 
+#ifdef TARGET_ARM64
+    if (m_compiler->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_SOFT_NULL_CHECKS) && node->OperIs(GT_CALL) &&
+        node->AsCall()->NeedsNullCheck())
+    {
+        return true;
+    }
+#endif // TARGET_ARM64
+
 #if defined(TARGET_WASM)
     switch (node->OperGet())
     {
@@ -250,6 +258,14 @@ bool StackLevelSetter::MayUseThrowHelperBlock(GenTree* node)
 void StackLevelSetter::SetThrowHelperBlocks(GenTree* node, BasicBlock* block)
 {
     assert(MayUseThrowHelperBlock(node));
+
+#ifdef TARGET_ARM64
+    if (m_compiler->opts.jitFlags->IsSet(JitFlags::JIT_FLAG_SOFT_NULL_CHECKS) && node->OperIs(GT_CALL) &&
+        node->AsCall()->NeedsNullCheck())
+    {
+        SetThrowHelperBlock(SCK_NULL_CHECK, block);
+    }
+#endif // TARGET_ARM64
 
     // Check that it uses throw block, find its kind, find the block, set level.
     switch (node->OperGet())

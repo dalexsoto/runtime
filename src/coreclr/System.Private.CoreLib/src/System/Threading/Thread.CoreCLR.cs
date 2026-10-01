@@ -554,6 +554,11 @@ namespace System.Threading
         // as a small assembly stub which checks the global g_TrapReturningThreads flag and tail-call to this helper
         private static void PollGC()
         {
+#if TARGET_WATCHOS
+            // Both this method and the P/Invoke stub are excluded from automatic GC polls.
+            if (CatchAtSafePoint())
+                PollGCInternal();
+#else
             if (CatchAtSafePoint())
             {
                 PollGCWorker();
@@ -561,6 +566,7 @@ namespace System.Threading
 
             [MethodImpl(MethodImplOptions.NoInlining)]
             static void PollGCWorker() => PollGCInternal();
+#endif
         }
 
 #if TARGET_UNIX || TARGET_BROWSER || TARGET_WASI

@@ -34,6 +34,11 @@ public:
     }
     virtual PhaseStatus DoPhase() override;
 
+#ifdef TARGET_ARM64
+    void     InsertSoftwareNullCheck(GenTree* node, GenTree** address);
+    GenTree* LowerSoftwareNullCheck(GenTreeIndir* node);
+#endif // TARGET_ARM64
+
     // This variant of LowerRange is called from outside of the main Lowering pass,
     // so it creates its own instance of Lowering to do so.
     void LowerRange(BasicBlock* block, LIR::ReadOnlyRange& range)
