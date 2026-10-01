@@ -17,8 +17,11 @@ set(CMAKE_INSTALL_DEFAULT_COMPONENT_NAME coreclr_misc)
 add_component(coreclr_misc)
 add_dependencies(runtime coreclr_misc)
 
-# The runtime build requires the clrjit and iltools builds
-add_dependencies(runtime jit iltools)
+# watchOS uses the interpreter and precompiled code, not a target-side JIT.
+add_dependencies(runtime iltools)
+if(NOT CLR_CMAKE_TARGET_WATCHOS)
+  add_dependencies(runtime jit)
+endif()
 
 # The runtime build requires the debugger tools builds
 add_dependencies(runtime debug)

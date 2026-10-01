@@ -303,12 +303,12 @@ bool InitializeSignalHandling();
 // initialization and false on failure.
 bool PalInit()
 {
-#ifndef FEATURE_PORTABLE_HELPERS
+#if !defined(FEATURE_PORTABLE_HELPERS) && !defined(HOST_WATCHOS)
     if (!InitializeHardwareExceptionHandling())
     {
         return false;
     }
-#endif // !FEATURE_PORTABLE_HELPERS
+#endif // !FEATURE_PORTABLE_HELPERS && !HOST_WATCHOS
 
     ConfigureSignals();
 
@@ -385,9 +385,9 @@ void PalAttachThread(void* thread)
     tls_destructionMonitor.SetThread(thread);
 #endif
 
-#ifdef FEATURE_HIJACK
+#if defined(FEATURE_HIJACK) && !defined(HOST_WATCHOS)
     UnmaskActivationSignal();
-#endif // FEATURE_HIJACK
+#endif // FEATURE_HIJACK && !HOST_WATCHOS
 }
 
 #if !defined(FEATURE_PORTABLE_HELPERS) && !defined(FEATURE_RX_THUNKS)
@@ -812,7 +812,11 @@ static void ActivationHandler(int code, siginfo_t* siginfo, void* context)
 
 bool InitializeSignalHandling()
 {
-#ifdef __APPLE__
+#ifdef HOST_WATCHOS
+    // Watch activation signals have no context. Compiled code polls for GC instead.
+    return true;
+#else
+#if defined(HOST_APPLE) && !defined(HOST_WATCHOS)
     void *libSystem = dlopen("/usr/lib/libSystem.dylib", RTLD_LAZY);
     if (libSystem != NULL)
     {
@@ -831,9 +835,10 @@ bool InitializeSignalHandling()
     //    int status = dispatch_allow_send_signals(INJECT_ACTIVATION_SIGNAL);
     //    _ASSERTE(status == 0);
     // }
-#endif // __APPLE__
+#endif // HOST_APPLE && !HOST_WATCHOS
 
     return AddSignalHandler(INJECT_ACTIVATION_SIGNAL, ActivationHandler, &g_previousActivationHandler);
+#endif // HOST_WATCHOS
 }
 
 HijackFunc* PalGetHijackTarget(HijackFunc* defaultHijackTarget)
@@ -843,6 +848,7 @@ HijackFunc* PalGetHijackTarget(HijackFunc* defaultHijackTarget)
 
 void PalHijack(Thread* pThreadToHijack)
 {
+#ifndef HOST_WATCHOS
     if (pThreadToHijack->IsActivationPending())
     {
         return;
@@ -878,6 +884,7 @@ void PalHijack(Thread* pThreadToHijack)
         // if the thread doesn't exist anymore.
         abort();
     }
+#endif // !HOST_WATCHOS
 }
 #endif // FEATURE_HIJACK
 

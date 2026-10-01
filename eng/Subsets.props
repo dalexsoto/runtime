@@ -42,6 +42,7 @@
 
     <!-- Determine if the Mono runtime can build/run for the specified target. -->
     <_MonoSupportedOS>true</_MonoSupportedOS>
+    <_MonoSupportedOS Condition="'$(TargetsWatchOS)' == 'true'">false</_MonoSupportedOS>
     <_MonoSupportedArch Condition="!('$(TargetOS)' == 'windows' and '$(TargetArchitecture)' == 'arm64') and !('$(TargetsLinuxMusl)' == 'true' and ('$(TargetArchitecture)' == 'arm' or '$(TargetArchitecture)' == 'arm64')) and !('$(TargetsLinuxBionic)' == 'true' and '$(TargetArchitecture)' == 'arm')">true</_MonoSupportedArch>
     <MonoSupported Condition="'$(_MonoSupportedOS)' == 'true' and '$(_MonoSupportedArch)' == 'true'">true</MonoSupported>
 
@@ -73,6 +74,7 @@
     <DefaultSubsets Condition="'$(TargetsAndroid)' == 'true' and '$(CoreCLRSupported)' == 'true'">clr+mono+libs+host+packs</DefaultSubsets>
     <DefaultSubsets Condition="'$(TargetsAndroid)' == 'true' and '$(CoreCLRSupported)' != 'true' and '$(NativeAotSupported)' == 'true'">clr.nativeaotruntime+clr.nativeaotlibs+mono+libs+packs</DefaultSubsets>
     <DefaultSubsets Condition="'$(TargetsAppleMobile)' == 'true'">clr+mono+libs+host+packs</DefaultSubsets>
+    <DefaultSubsets Condition="'$(TargetsWatchOS)' == 'true'">clr+libs+host+packs</DefaultSubsets>
     <DefaultSubsets Condition="'$(TargetsLinuxBionic)' == 'true' and '$(CoreCLRSupported)' == 'true' and '$(MonoSupported)' == 'true'">clr+mono+libs+host+packs</DefaultSubsets>
     <DefaultSubsets Condition="'$(TargetsLinuxBionic)' == 'true' and '$(CoreCLRSupported)' == 'true' and '$(MonoSupported)' != 'true'">clr+libs+host+packs</DefaultSubsets>
     <DefaultSubsets Condition="'$(TargetsLinuxBionic)' == 'true' and '$(CoreCLRSupported)' != 'true' and '$(MonoSupported)' == 'true'">clr.nativeaotruntime+clr.nativeaotlibs+mono+libs+host+packs</DefaultSubsets>
@@ -99,6 +101,7 @@
 
 
   <PropertyGroup Condition="'$(RuntimeFlavor)' == ''">
+    <RuntimeFlavor Condition="'$(TargetsWatchOS)' == 'true'">CoreCLR</RuntimeFlavor>
     <RuntimeFlavor Condition="('$(TargetsMobile)' == 'true' or '$(TargetsLinuxBionic)' == 'true') and ($(_subset.Contains('+clr.nativeaotlibs+')) or $(_subset.Contains('+clr.runtime+')))">CoreCLR</RuntimeFlavor>
     <RuntimeFlavor Condition="'$(TargetsAndroid)' == 'true' and ($(_subset.Contains('+clr+')) or $(_subset.Contains('+clr.')))">CoreCLR</RuntimeFlavor>
     <RuntimeFlavor Condition="'$(TargetsLinuxBionic)' == 'true' and ($(_subset.Contains('+clr+')) or $(_subset.Contains('+clr.')))">CoreCLR</RuntimeFlavor>

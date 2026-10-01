@@ -5969,7 +5969,7 @@ bool Thread::InjectActivation(ActivationReason reason)
 void ThreadSuspend::Initialize()
 {
 #ifdef FEATURE_HIJACK
-#if defined(TARGET_UNIX)
+#if defined(TARGET_UNIX) && defined(FEATURE_THREAD_ACTIVATION)
     ::PAL_SetActivationFunction(HandleSuspensionForInterruptedThread, CheckActivationSafePoint);
 #elif defined(TARGET_WINDOWS)
     if (Thread::AreShadowStacksEnabled())

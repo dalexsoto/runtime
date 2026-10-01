@@ -1,4 +1,4 @@
-<Project InitialTargets="ValidateTargetOSLowercase">
+<Project InitialTargets="ValidateTargetOSLowercase;ValidateWatchOSTarget">
   <PropertyGroup>
     <!--
     For non-SDK projects that import this file and then import Microsoft.Common.targets,
@@ -107,6 +107,19 @@
                      '$(SkipValidateReferenceAssemblyProjectReferences)' != 'true'">
     <Error Text="Reference assemblies must be TargetPlatform agnostic. $(MSBuildProjectName) incorrectly targets $(TargetFramework), platform: $(TargetPlatformIdentifier)."
            Condition="'$(TargetPlatformIdentifier)' != ''" />
+  </Target>
+
+  <Target Name="ValidateWatchOSTarget" Condition="'$(TargetsWatchOS)' == 'true'">
+    <Error Condition="'$(TargetArchitecture)' != 'arm64'"
+           Text="watchOS currently supports only the arm64 architecture. arm64_32 is a different ABI and is not supported." />
+    <Error Condition="'$(RuntimeFlavor)' == 'Mono' or '$(UseMonoRuntime)' == 'true'"
+           Text="watchOS supports CoreCLR and NativeAOT, not the Mono runtime." />
+    <Error Condition="$(_subset.Contains('+mono+')) or $(_subset.Contains('+mono.'))"
+           Text="Mono runtime and AOT compiler subsets are not supported for watchOS." />
+    <Error Condition="'$(FeatureDynamicCodeCompiled)' != 'false'"
+           Text="watchOS runtime builds require FeatureDynamicCodeCompiled=false; JIT compilation is not supported." />
+    <Error Condition="'$(FeatureInterpreter)' != 'true'"
+           Text="watchOS CoreCLR runtime builds require FeatureInterpreter=true for methods not compiled ahead of time." />
   </Target>
 
   <!-- For experimental ref assemblies (which typically have the same name as a regular ref

@@ -593,7 +593,7 @@ fi
 # Default dynamiccodecompiled based on target OS if not explicitly set
 if [[ -z "$dynamiccodecompiled" ]]; then
     case "$os" in
-        maccatalyst|ios|iossimulator|tvos|tvossimulator|browser|wasi)
+        maccatalyst|ios|iossimulator|tvos|tvossimulator|watchos|watchossimulator|browser|wasi)
             dynamiccodecompiled="false"
             ;;
         *)

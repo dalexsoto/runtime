@@ -171,6 +171,13 @@ BOOL SEHInitializeSignals(CorUnix::CPalThread *pthrCurrent, DWORD flags)
     }
 #endif
 
+#ifdef HOST_WATCHOS
+    // Fatal signal handlers are prohibited. Managed null checks are emitted in
+    // software, while native memory faults and stack overflow remain fatal.
+    // Activation signals have no ucontext; GC uses cooperative polling instead.
+    flags &= ~(PAL_INITIALIZE_REGISTER_SIGNALS | PAL_INITIALIZE_REGISTER_ACTIVATION_SIGNAL);
+#endif // HOST_WATCHOS
+
     if (flags & PAL_INITIALIZE_REGISTER_SIGNALS)
     {
         g_registered_signal_handlers = true;
@@ -262,7 +269,7 @@ BOOL SEHInitializeSignals(CorUnix::CPalThread *pthrCurrent, DWORD flags)
 #ifdef INJECT_ACTIVATION_SIGNAL
     if (flags & PAL_INITIALIZE_REGISTER_ACTIVATION_SIGNAL)
     {
-#ifdef __APPLE__
+#if defined(HOST_APPLE) && !defined(HOST_WATCHOS)
         void *libSystem = dlopen("/usr/lib/libSystem.dylib", RTLD_LAZY);
         if (libSystem != NULL)
         {
@@ -281,7 +288,7 @@ BOOL SEHInitializeSignals(CorUnix::CPalThread *pthrCurrent, DWORD flags)
         //    int st = dispatch_allow_send_signals(INJECT_ACTIVATION_SIGNAL);
         //    g_canSendSignalToDispatchQueueThreads = (st == 0);
         // }
-#endif // __APPLE__
+#endif // HOST_APPLE && !HOST_WATCHOS
 
         handle_signal(INJECT_ACTIVATION_SIGNAL, inject_activation_handler, &g_previous_activation);
         g_registered_activation_handler = true;

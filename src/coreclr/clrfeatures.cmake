@@ -1,3 +1,14 @@
+if(CLR_CMAKE_TARGET_WATCHOS)
+  if(FEATURE_DYNAMIC_CODE_COMPILED)
+    message(FATAL_ERROR "watchOS does not support JIT compilation.")
+  endif()
+  if(DEFINED FEATURE_INTERPRETER AND NOT FEATURE_INTERPRETER)
+    message(FATAL_ERROR "watchOS CoreCLR requires the interpreter.")
+  endif()
+  set(FEATURE_DYNAMIC_CODE_COMPILED 0)
+  set(FEATURE_INTERPRETER 1)
+endif()
+
 # riscv64 and loongarch64 do not have a separate CID-only asm stub layer yet.
 # Forcing FEATURE_DYNAMIC_CODE_COMPILED on keeps the feature matrix consistent with
 # the top-level build and avoids unresolved CID/VSD stub symbols at link time.

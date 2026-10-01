@@ -190,7 +190,7 @@ struct TailCallArgBuffer
 #define DISABLE_THREADSUSPEND
 #endif
 
-#if defined(FEATURE_HIJACK) && (defined(TARGET_UNIX) || defined(FEATURE_SPECIAL_USER_MODE_APC))
+#if defined(FEATURE_HIJACK) && !defined(TARGET_WATCHOS) && (defined(TARGET_UNIX) || defined(FEATURE_SPECIAL_USER_MODE_APC))
 #define FEATURE_THREAD_ACTIVATION
 #endif
 

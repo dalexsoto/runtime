@@ -189,6 +189,11 @@
 
   <Import Project="$(RepositoryEngineeringDir)RuntimeIdentifier.props" />
 
+  <PropertyGroup Condition="'$(TargetsWatchOS)' == 'true'">
+    <FeatureDynamicCodeCompiled Condition="'$(FeatureDynamicCodeCompiled)' == ''">false</FeatureDynamicCodeCompiled>
+    <FeatureInterpreter Condition="'$(FeatureInterpreter)' == ''">true</FeatureInterpreter>
+  </PropertyGroup>
+
   <PropertyGroup>
     <MicrosoftNetCoreAppRefPackDir>$([MSBuild]::NormalizeDirectory('$(ArtifactsBinDir)', 'microsoft.netcore.app.ref'))</MicrosoftNetCoreAppRefPackDir>
     <MicrosoftNetCoreAppRefPackRefDir>$([MSBuild]::NormalizeDirectory('$(MicrosoftNetCoreAppRefPackDir)', 'ref', '$(NetCoreAppCurrent)'))</MicrosoftNetCoreAppRefPackRefDir>

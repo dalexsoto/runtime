@@ -109,6 +109,8 @@
 
     <ItemGroup Condition="'$(RuntimeFlavor)' == 'CoreCLR' and '$(BuildNativeAOTRuntimePack)' != 'true'">
       <RuntimeFiles Include="$(CoreCLRSharedFrameworkDir)*.*" />
+      <RuntimeFiles Remove="$(CoreCLRSharedFrameworkDir)libclrjit*"
+                    Condition="'$(TargetsWatchOS)' == 'true'" />
       <RuntimeFiles Condition="'$(PgoInstrument)' == 'true'" Include="$(CoreCLRSharedFrameworkDir)PGD/*" />
       <CoreCLRCrossTargetFiles Condition="'$(CoreCLRCrossTargetComponentDir)' != ''" Include="$(CoreCLRCrossTargetComponentDir)*.*" IsNative="true" />
       <RuntimeFiles>
