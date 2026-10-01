@@ -30,6 +30,7 @@ Copyright (c) .NET Foundation. All rights reserved.
     <PublishReadyToRunEmitSymbols Condition="'$(PublishReadyToRunEmitSymbols)' == '' and $(RuntimeIdentifier.StartsWith('tvos-'))">false</PublishReadyToRunEmitSymbols>
     <PublishReadyToRunEmitSymbols Condition="'$(PublishReadyToRunEmitSymbols)' == '' and $(RuntimeIdentifier.StartsWith('iossimulator-'))">false</PublishReadyToRunEmitSymbols>
     <PublishReadyToRunEmitSymbols Condition="'$(PublishReadyToRunEmitSymbols)' == '' and $(RuntimeIdentifier.StartsWith('tvossimulator-'))">false</PublishReadyToRunEmitSymbols>
+    <PublishReadyToRunEmitSymbols Condition="'$(PublishReadyToRunEmitSymbols)' == '' and $(RuntimeIdentifier.StartsWith('watchos'))">false</PublishReadyToRunEmitSymbols>
     <PublishReadyToRunEmitSymbols Condition="'$(PublishReadyToRunEmitSymbols)' == '' and $(RuntimeIdentifier.StartsWith('maccatalyst-'))">false</PublishReadyToRunEmitSymbols>
     <PublishReadyToRunEmitSymbols Condition="'$(PublishReadyToRunEmitSymbols)' == '' and $(RuntimeIdentifier.StartsWith('osx-'))">false</PublishReadyToRunEmitSymbols>
     <PublishReadyToRunEmitSymbols Condition="'$(PublishReadyToRunEmitSymbols)' == '' and $(RuntimeIdentifier.StartsWith('browser-'))">false</PublishReadyToRunEmitSymbols>
@@ -39,6 +40,7 @@ Copyright (c) .NET Foundation. All rights reserved.
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripInliningInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('tvos-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-inlining-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripInliningInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('iossimulator-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-inlining-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripInliningInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('tvossimulator-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-inlining-info</PublishReadyToRunCrossgen2ExtraArgs>
+    <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripInliningInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('watchos'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-inlining-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripInliningInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('maccatalyst-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-inlining-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripInliningInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('browser-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-inlining-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripInliningInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('wasi-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-inlining-info</PublishReadyToRunCrossgen2ExtraArgs>
@@ -47,6 +49,7 @@ Copyright (c) .NET Foundation. All rights reserved.
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripDebugInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('tvos-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-debug-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripDebugInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('iossimulator-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-debug-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripDebugInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('tvossimulator-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-debug-info</PublishReadyToRunCrossgen2ExtraArgs>
+    <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripDebugInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('watchos'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-debug-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripDebugInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('maccatalyst-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-debug-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripDebugInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('browser-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-debug-info</PublishReadyToRunCrossgen2ExtraArgs>
     <PublishReadyToRunCrossgen2ExtraArgs Condition="'$(PublishReadyToRunStripDebugInfo)' != 'false' and $(RuntimeIdentifier.StartsWith('wasi-'))">$(PublishReadyToRunCrossgen2ExtraArgs);--strip-debug-info</PublishReadyToRunCrossgen2ExtraArgs>
@@ -571,6 +574,8 @@ Copyright (c) .NET Foundation. All rights reserved.
       <_AppleTargetOS Condition="$(RuntimeIdentifier.StartsWith('tvos-'))">tvos</_AppleTargetOS>
       <_AppleTargetOS Condition="$(RuntimeIdentifier.StartsWith('iossimulator-'))">iossimulator</_AppleTargetOS>
       <_AppleTargetOS Condition="$(RuntimeIdentifier.StartsWith('tvossimulator-'))">tvossimulator</_AppleTargetOS>
+      <_AppleTargetOS Condition="$(RuntimeIdentifier.StartsWith('watchos-'))">watchos</_AppleTargetOS>
+      <_AppleTargetOS Condition="$(RuntimeIdentifier.StartsWith('watchossimulator-'))">watchossimulator</_AppleTargetOS>
       <_AppleTargetOS Condition="$(RuntimeIdentifier.StartsWith('maccatalyst-'))">maccatalyst</_AppleTargetOS>
       <_AppleTargetOS Condition="$(RuntimeIdentifier.StartsWith('osx-'))">osx</_AppleTargetOS>
 
@@ -582,18 +587,22 @@ Copyright (c) .NET Foundation. All rights reserved.
       <AppleMinOSVersion Condition="'$(AppleMinOSVersion)' == '' and '$(_AppleTargetOS)' == 'osx'">14.0</AppleMinOSVersion>
       <AppleMinOSVersion Condition="'$(AppleMinOSVersion)' == '' and '$(_AppleTargetOS)' == 'maccatalyst'">17.0</AppleMinOSVersion>
       <AppleMinOSVersion Condition="'$(AppleMinOSVersion)' == '' and ($(_AppleTargetOS.StartsWith('ios')) or $(_AppleTargetOS.StartsWith('tvos')))">13.0</AppleMinOSVersion>
+      <AppleMinOSVersion Condition="'$(AppleMinOSVersion)' == '' and $(_AppleTargetOS.StartsWith('watchos'))">26.0</AppleMinOSVersion>
 
       <_AppleSdkName Condition="'$(_AppleTargetOS)' == 'ios'">iphoneos</_AppleSdkName>
       <_AppleSdkName Condition="'$(_AppleTargetOS)' == 'iossimulator'">iphonesimulator</_AppleSdkName>
       <_AppleSdkName Condition="'$(_AppleTargetOS)' == 'tvos'">appletvos</_AppleSdkName>
       <_AppleSdkName Condition="'$(_AppleTargetOS)' == 'tvossimulator'">appletvsimulator</_AppleSdkName>
+      <_AppleSdkName Condition="'$(_AppleTargetOS)' == 'watchos'">watchos</_AppleSdkName>
+      <_AppleSdkName Condition="'$(_AppleTargetOS)' == 'watchossimulator'">watchsimulator</_AppleSdkName>
       <_AppleSdkName Condition="'$(_AppleTargetOS)' == 'maccatalyst' or '$(_AppleTargetOS)' == 'osx'">macosx</_AppleSdkName>
 
       <_AppleTripleOS Condition="'$(_AppleTargetOS)' == 'osx'">macos</_AppleTripleOS>
       <_AppleTripleOS Condition="'$(_AppleTargetOS)' == 'maccatalyst' or $(_AppleTargetOS.StartsWith('ios'))">ios</_AppleTripleOS>
       <_AppleTripleOS Condition="$(_AppleTargetOS.StartsWith('tvos'))">tvos</_AppleTripleOS>
+      <_AppleTripleOS Condition="$(_AppleTargetOS.StartsWith('watchos'))">watchos</_AppleTripleOS>
 
-      <_AppleTripleAbi Condition="'$(_AppleTargetOS)' == 'ios' or '$(_AppleTargetOS)' == 'tvos'">macho</_AppleTripleAbi>
+      <_AppleTripleAbi Condition="'$(_AppleTargetOS)' == 'ios' or '$(_AppleTargetOS)' == 'tvos' or '$(_AppleTargetOS)' == 'watchos'">macho</_AppleTripleAbi>
       <_AppleTripleAbi Condition="'$(_AppleTargetOS)' == 'maccatalyst'">macabi</_AppleTripleAbi>
       <_AppleTripleAbi Condition="$(_AppleTargetOS.EndsWith('simulator'))">simulator</_AppleTripleAbi>
 

@@ -300,6 +300,9 @@
   <data name="TargetOSUnsupported" xml:space="preserve">
     <value>Target OS is not supported</value>
   </data>
+  <data name="WatchOSRequiresNoJitConfiguration" xml:space="preserve">
+    <value>watchOS compilation requires runtime code generation to be disabled, cached interface dispatch support, and generated unboxing stubs.</value>
+  </data>
   <data name="TypeAndMethodNameNeeded" xml:space="preserve">
     <value>Both method name and type name are required parameters for single method mode</value>
   </data>

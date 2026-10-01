@@ -222,24 +222,31 @@
       <AppleMinOSVersion Condition="'$(AppleMinOSVersion)' == '' and '$(TargetOS)' == 'maccatalyst'">$(MacCatalystVersionMin)</AppleMinOSVersion>
       <AppleMinOSVersion Condition="'$(AppleMinOSVersion)' == '' and $(TargetOS.StartsWith('ios'))">$(iOSVersionMin)</AppleMinOSVersion>
       <AppleMinOSVersion Condition="'$(AppleMinOSVersion)' == '' and $(TargetOS.StartsWith('tvos'))">$(tvOSVersionMin)</AppleMinOSVersion>
+      <AppleMinOSVersion Condition="'$(AppleMinOSVersion)' == '' and $(TargetOS.StartsWith('watchos'))">$(watchOSVersionMin)</AppleMinOSVersion>
 
       <_AppleSdkName Condition="'$(TargetOS)' == 'ios'">iphoneos</_AppleSdkName>
       <_AppleSdkName Condition="'$(TargetOS)' == 'iossimulator'">iphonesimulator</_AppleSdkName>
       <_AppleSdkName Condition="'$(TargetOS)' == 'tvos'">appletvos</_AppleSdkName>
       <_AppleSdkName Condition="'$(TargetOS)' == 'tvossimulator'">appletvsimulator</_AppleSdkName>
+      <_AppleSdkName Condition="'$(TargetOS)' == 'watchos'">watchos</_AppleSdkName>
+      <_AppleSdkName Condition="'$(TargetOS)' == 'watchossimulator'">watchsimulator</_AppleSdkName>
       <_AppleSdkName Condition="'$(TargetOS)' == 'maccatalyst' or '$(TargetOS)' == 'osx'">macosx</_AppleSdkName>
 
       <_AppleTripleOS Condition="'$(TargetOS)' == 'osx'">macos</_AppleTripleOS>
       <_AppleTripleOS Condition="'$(TargetOS)' == 'maccatalyst' or $(TargetOS.StartsWith('ios'))">ios</_AppleTripleOS>
       <_AppleTripleOS Condition="$(TargetOS.StartsWith('tvos'))">tvos</_AppleTripleOS>
+      <_AppleTripleOS Condition="$(TargetOS.StartsWith('watchos'))">watchos</_AppleTripleOS>
 
-      <_AppleTripleAbi Condition="'$(TargetOS)' == 'ios' or '$(TargetOS)' == 'tvos'">macho</_AppleTripleAbi>
+      <_AppleTripleAbi Condition="'$(TargetOS)' == 'ios' or '$(TargetOS)' == 'tvos' or '$(TargetOS)' == 'watchos'">macho</_AppleTripleAbi>
       <_AppleTripleAbi Condition="'$(TargetOS)' == 'maccatalyst'">macabi</_AppleTripleAbi>
       <_AppleTripleAbi Condition="$(TargetOS.EndsWith('simulator'))">simulator</_AppleTripleAbi>
 
       <TargetTriple Condition="'$(_AppleTripleAbi)' == ''">$(_AppleTargetArchitecture)-apple-$(_AppleTripleOS)$(AppleMinOSVersion)</TargetTriple>
       <TargetTriple Condition="'$(_AppleTripleAbi)' != ''">$(_AppleTargetArchitecture)-apple-$(_AppleTripleOS)$(AppleMinOSVersion)-$(_AppleTripleAbi)</TargetTriple>
     </PropertyGroup>
+
+    <Error Condition="'$(_AppleSdkName)' == '' or '$(_AppleTargetArchitecture)' == '' or '$(_AppleTripleOS)' == '' or '$(AppleMinOSVersion)' == ''"
+           Text="The Apple SDK, architecture, target OS, and minimum OS version must be resolved before linking CoreLib for $(TargetOS)." />
 
     <PropertyGroup>
       <Xcrun Condition="'$(Xcrun)' == ''">xcrun</Xcrun>

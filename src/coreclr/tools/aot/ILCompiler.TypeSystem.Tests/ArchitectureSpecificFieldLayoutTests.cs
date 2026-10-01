@@ -62,6 +62,22 @@ namespace TypeSystemTests
             _testModuleARM64 = systemModuleARM64;
         }
 
+        [Theory]
+        [InlineData(TargetOS.iOS)]
+        [InlineData(TargetOS.iOSSimulator)]
+        [InlineData(TargetOS.tvOS)]
+        [InlineData(TargetOS.tvOSSimulator)]
+        [InlineData(TargetOS.watchOS)]
+        [InlineData(TargetOS.watchOSSimulator)]
+        public void AppleArm64Uses64BitPointers(TargetOS operatingSystem)
+        {
+            TargetDetails target = new TargetDetails(TargetArchitecture.ARM64, operatingSystem, TargetAbi.NativeAot);
+
+            Assert.True(target.IsApplePlatform);
+            Assert.Equal(8, target.PointerSize);
+            Assert.Equal(16, target.MaximumAlignment);
+        }
+
         [Fact]
         public void TestInstanceLayoutDoubleBool()
         {

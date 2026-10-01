@@ -38,6 +38,9 @@ internal static class TestPaths
 
     public static bool IsIosArm64Target => TargetOS is "ios" && TargetArchitecture is "arm64";
 
+    public static bool IsAppleMobileArm64Target =>
+        TargetArchitecture == "arm64" && TargetOS is "ios" or "iossimulator" or "tvos" or "tvossimulator" or "watchos" or "watchossimulator";
+
     public static bool IsWindowsHost => OperatingSystem.IsWindows();
 
     /// <summary>

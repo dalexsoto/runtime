@@ -289,6 +289,13 @@ namespace ILCompiler.ObjectWriter
                     };
                     buildVersion.MinimumPlatformVersion = 0x0D_00_00; // 13.0.0
                     break;
+
+                case TargetOS.watchOS:
+                case TargetOS.watchOSSimulator:
+                    buildVersion.Platform = _targetOS == TargetOS.watchOS ? PLATFORM_WATCHOS : PLATFORM_WATCHOSSIMULATOR;
+                    buildVersion.MinimumPlatformVersion = 0x1A_00_00; // 26.0.0
+                    buildVersion.SdkVersion = buildVersion.MinimumPlatformVersion;
+                    break;
             }
             buildVersion.Write(outputFileStream);
 

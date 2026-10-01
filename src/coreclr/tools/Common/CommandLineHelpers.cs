@@ -25,7 +25,7 @@ namespace System.CommandLine
     {
         public const string DefaultSystemModule = "System.Private.CoreLib";
 
-        public static string[] ValidOS { get; } = ["windows", "linux", "freebsd", "openbsd", "osx", "maccatalyst", "ios", "iossimulator", "tvos", "tvossimulator", "android", "browser", "wasi"];
+        public static string[] ValidOS { get; } = ["windows", "linux", "freebsd", "openbsd", "osx", "maccatalyst", "ios", "iossimulator", "tvos", "tvossimulator", "watchos", "watchossimulator", "android", "browser", "wasi"];
         public static string[] ValidArchitectures { get; } = ["arm", "armel", "arm64", "x86", "x64", "riscv64", "loongarch64", "wasm"];
 
         public static Dictionary<string, string> BuildPathDictionary(IReadOnlyList<Token> tokens, bool strict)
@@ -87,6 +87,8 @@ namespace System.CommandLine
                 "ios" => TargetOS.iOS,
                 "tvossimulator" => TargetOS.tvOSSimulator,
                 "tvos" => TargetOS.tvOS,
+                "watchos" => TargetOS.watchOS,
+                "watchossimulator" => TargetOS.watchOSSimulator,
                 "browser" => TargetOS.Browser,
                 "wasi" => TargetOS.Wasi,
                 _ => throw new CommandLineException($"Target OS '{token}' is not supported")
@@ -132,6 +134,10 @@ namespace System.CommandLine
 
             TargetArchitecture targetArchitecture = GetTargetArchitecture(targetArchitectureToken);
             TargetOS targetOS = GetTargetOS(targetOSToken);
+            if ((targetOS is TargetOS.watchOS or TargetOS.watchOSSimulator) && targetArchitecture != TargetArchitecture.ARM64)
+            {
+                throw new CommandLineException($"Target architecture '{targetArchitectureToken}' is not supported for '{targetOSToken}'. Only arm64 is supported; arm64_32 is a different ABI.");
+            }
             TargetAbi targetAbi = (targetOSToken, targetArchitectureToken) switch
             {
                 (_, "armel") => TargetAbi.NativeAotArmel,

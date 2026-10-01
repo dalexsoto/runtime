@@ -33,7 +33,7 @@ namespace System.CommandLine
             if ((targetArchitecture == TargetArchitecture.X86) || (targetArchitecture == TargetArchitecture.X64))
             {
                 bool isAppleOS = targetOS is TargetOS.OSX or TargetOS.MacCatalyst
-                    or TargetOS.iOSSimulator or TargetOS.tvOSSimulator;
+                    or TargetOS.iOSSimulator or TargetOS.tvOSSimulator or TargetOS.watchOSSimulator;
 
                 if (isReadyToRun && !isAppleOS)
                 {
@@ -50,13 +50,15 @@ namespace System.CommandLine
             {
                 if ((targetOS == TargetOS.OSX) || (targetOS == TargetOS.MacCatalyst))
                 {
-                    // Apple has six targets today:
+                    // Apple platform targets:
                     // * OSX
                     // * MacCatalyst
                     // * iOS
                     // * iOSSimulator
                     // * tvOS
                     // * tvOSSimulator
+                    // * watchOS
+                    // * watchOSSimulator
                     //
                     // For osx-arm64 and maccatalyst, we know that the baseline is apple-m1
                     // For iOS, tvOS, and the simulator variants it can be older
@@ -71,9 +73,9 @@ namespace System.CommandLine
                         instructionSetSupportBuilder.AddSupportedInstructionSet("armv8.2-a");
                         instructionSetSupportBuilder.AddSupportedInstructionSet("rcpc");
                     }
-                    else if (targetOS is TargetOS.iOS or TargetOS.iOSSimulator or TargetOS.tvOS or TargetOS.tvOSSimulator)
+                    else if (targetOS is TargetOS.iOS or TargetOS.iOSSimulator or TargetOS.tvOS or TargetOS.tvOSSimulator or TargetOS.watchOS or TargetOS.watchOSSimulator)
                     {
-                        // ReadyToRun on iOS/tvOS can only presume armv8.0-a
+                        // Apple mobile ReadyToRun must use a baseline that does not require JIT fallback.
                         instructionSetSupportBuilder.AddSupportedInstructionSet("armv8-a");
                     }
                     else

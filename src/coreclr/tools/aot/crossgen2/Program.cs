@@ -89,6 +89,13 @@ namespace ILCompiler
             }
             bool targetAllowsRuntimeCodeGeneration = Get(_command.TargetAllowsRuntimeCodeGeneration)
                 ?? GetTargetAllowsRuntimeCodeGeneration(targetOS, targetArchitecture);
+            if ((targetOS is TargetOS.watchOS or TargetOS.watchOSSimulator)
+                && (targetAllowsRuntimeCodeGeneration
+                    || Get(_command.EnableCachedInterfaceDispatchSupport) == false
+                    || Get(_command.GenerateUnboxingStubs) == false))
+            {
+                throw new CommandLineException(SR.WatchOSRequiresNoJitConfiguration);
+            }
 
             // Crossgen2 is partial AOT and its pre-compiled methods can be thrown away at runtime if
             // they mismatch in required ISAs or computed layouts of structs. On targets that allow
@@ -740,7 +747,7 @@ namespace ILCompiler
 
         private static bool GetTargetAllowsRuntimeCodeGeneration(TargetOS operatingSystem, TargetArchitecture architecture)
         {
-            return operatingSystem is not (TargetOS.iOS or TargetOS.iOSSimulator or TargetOS.MacCatalyst or TargetOS.tvOS or TargetOS.tvOSSimulator or TargetOS.Browser or TargetOS.Wasi)
+            return operatingSystem is not (TargetOS.iOS or TargetOS.iOSSimulator or TargetOS.MacCatalyst or TargetOS.tvOS or TargetOS.tvOSSimulator or TargetOS.watchOS or TargetOS.watchOSSimulator or TargetOS.Browser or TargetOS.Wasi)
                 && architecture is not TargetArchitecture.Wasm32;
         }
 

@@ -30,6 +30,43 @@ public class R2RTestSuites
         _output = output;
     }
 
+    [Theory]
+    [InlineData("watchos", "--targetarch:x64", "Only arm64 is supported")]
+    [InlineData("watchossimulator", "--targetarch:x64", "Only arm64 is supported")]
+    [InlineData("watchos", "--target-allows-runtime-code-generation:true", "watchOS compilation requires")]
+    [InlineData("watchossimulator", "--target-allows-runtime-code-generation:true", "watchOS compilation requires")]
+    [InlineData("watchos", "--enable-cached-interface-dispatch-support:false", "watchOS compilation requires")]
+    [InlineData("watchossimulator", "--enable-cached-interface-dispatch-support:false", "watchOS compilation requires")]
+    [InlineData("watchos", "--generate-unboxing-stubs:false", "watchOS compilation requires")]
+    [InlineData("watchossimulator", "--generate-unboxing-stubs:false", "watchOS compilation requires")]
+    public void WatchOSRejectsUnsupportedCompilerConfiguration(string targetOS, string option, string diagnostic)
+    {
+        string output = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try
+        {
+            List<string> arguments =
+            [
+                "--targetos:" + targetOS,
+                option,
+                "--out:" + output,
+                TestPaths.SystemPrivateCoreLibPath,
+            ];
+            if (!option.StartsWith("--targetarch:", StringComparison.Ordinal))
+            {
+                arguments.Add("--targetarch:arm64");
+            }
+            R2RCompilationResult result = new R2RDriver(_output).Compile(arguments);
+
+            Assert.NotEqual(0, result.ExitCode);
+            Assert.Contains(diagnostic, result.StandardOutput + result.StandardError);
+            Assert.False(File.Exists(output));
+        }
+        finally
+        {
+            File.Delete(output);
+        }
+    }
+
     [ConditionalFact(typeof(TestPaths), nameof(TestPaths.IsNotWasmTarget))]
     public void BasicCrossModuleInlining()
     {
@@ -913,7 +950,7 @@ public class R2RTestSuites
         }
     }
 
-    [ConditionalFact(typeof(TestPaths), nameof(TestPaths.IsIosArm64Target))]
+    [ConditionalFact(typeof(TestPaths), nameof(TestPaths.IsAppleMobileArm64Target))]
     public void AppleMobileStripILBodiesUsesFixedInstructionSet()
     {
         var stripILBodies = new CompiledAssembly

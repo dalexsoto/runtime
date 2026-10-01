@@ -118,6 +118,8 @@ namespace ILCompiler.PEWriter
                 case TargetOS.iOSSimulator:
                 case TargetOS.tvOS:
                 case TargetOS.tvOSSimulator:
+                case TargetOS.watchOS:
+                case TargetOS.watchOSSimulator:
                     return MachineOSOverride.Apple;
 
                 case TargetOS.FreeBSD:
